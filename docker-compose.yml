@@ -1,0 +1,44 @@
+# Local development dependencies.
+# Prod uses Neon (Postgres), Groq (LLM), and Langfuse Cloud instead of these.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: copilot
+      POSTGRES_PASSWORD: copilot
+      POSTGRES_DB: copilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    # After `make up`, pull a model:  docker compose exec ollama ollama pull qwen2.5:7b-instruct
+
+  # Optional local Langfuse (LLM tracing). Comment out to use Langfuse Cloud instead.
+  langfuse:
+    image: langfuse/langfuse:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: postgresql://copilot:copilot@postgres:5432/copilot
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: dev-secret-change-me
+      SALT: dev-salt-change-me
+
+volumes:
+  pgdata:
+  ollama:

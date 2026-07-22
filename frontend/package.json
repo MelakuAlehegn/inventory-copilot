@@ -1,0 +1,14 @@
+{
+  "name": "inventory-copilot-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next.js frontend for the Retail Demand & Inventory Copilot.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests yet\" && exit 0"
+  }
+}

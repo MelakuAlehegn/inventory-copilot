@@ -1,0 +1,40 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- ML / data artifacts ---
+mlruns/
+data/raw/
+data/processed/
+data/interim/
+*.parquet
+*.duckdb
+*.ckpt
+*.joblib
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+.turbo/
+frontend/out/
+
+# --- Env & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Working docs (untracked) ---
+local-docs/
+CLAUDE.md
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
