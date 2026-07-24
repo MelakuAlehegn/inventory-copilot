@@ -16,5 +16,3 @@ Three Fly apps + one managed database:
 ```bash
 make deploy          # from repo root -> infra deploy-api + deploy-web
 ```
-
-> `api.fly.toml` and `web.fly.toml` are added in Week 6 alongside the Dockerfiles.

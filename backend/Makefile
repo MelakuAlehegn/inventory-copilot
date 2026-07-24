@@ -10,10 +10,10 @@ help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-install: ## Create venv and install core + dev deps (Weeks 1-3)
+install: ## Create venv and install core + dev deps
 	uv sync --extra dev
 
-install-all: ## Install everything (api, agent, mcp, dev) for the full app
+install-all: ## Install all extras (api, agent, mcp, dev)
 	uv sync --all-extras
 
 data-download: ## Download raw M5 dataset into ../data/raw
