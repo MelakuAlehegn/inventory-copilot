@@ -26,10 +26,24 @@ make data-build     # transform -> partitioned Parquet + features in data/proces
 v1 operates on the **FOODS** category across all **10 stores** (chosen for the least
 intermittent demand → cleaner forecasts and a more legible inventory story).
 
-## Files (M5)
-- `sales_train_evaluation.csv` — daily unit sales per item/store.
+## Source & format
+Downloaded via Nixtla's `datasetsforecast` M5 loader (no Kaggle auth). It caches the
+original CSVs under `data/raw/m5/datasets/` and returns three tidy long-format frames:
+
+- **Y_df** — targets: `unique_id, ds, y` (daily unit sales per item-store series).
+- **X_df** — exogenous, same rows as Y_df: `unique_id, ds, event_name_1,
+  event_type_1, event_name_2, event_type_2, snap_CA, snap_TX, snap_WI, sell_price`.
+- **S_df** — static, one row per series (30,490): `unique_id, item_id, dept_id,
+  cat_id, store_id, state_id`. The FOODS×10 slice filters `cat_id == "FOODS"`.
+
+`unique_id` = `item_id` + `store_id`. The loader trims each series' leading zeros
+(the pre-launch period before an item's first sale), so the full set is ~47.6M rows
+rather than 30,490 × 1,941 days.
+
+Original CSVs also present under `data/raw/m5/datasets/`:
+- `sales_train_evaluation.csv` — daily unit sales per item/store (wide format).
 - `calendar.csv` — dates, weekday, events, SNAP flags.
-- `sell_prices.csv` — weekly item/store prices (used for price/promo features).
+- `sell_prices.csv` — weekly item/store prices.
 
 ## Inventory economics (synthesized)
 Lead time, review period, holding cost, order cost, and service level are **not** in

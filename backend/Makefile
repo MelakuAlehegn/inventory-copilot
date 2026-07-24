@@ -1,6 +1,6 @@
 # Backend task runner (Python, uv). Invoked by the top-level Makefile.
 .DEFAULT_GOAL := help
-.PHONY: help install data-download data-build train backtest simulate eval \
+.PHONY: help install install-all data-download data-build train backtest simulate eval \
         api mcp test lint fmt typecheck clean
 
 UV := uv run
@@ -10,8 +10,11 @@ help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-install: ## Create venv and install deps (incl. dev + mcp extras)
-	uv sync --extra dev --extra mcp
+install: ## Create venv and install core + dev deps (Weeks 1-3)
+	uv sync --extra dev
+
+install-all: ## Install everything (api, agent, mcp, dev) for the full app
+	uv sync --all-extras
 
 data-download: ## Download raw M5 dataset into ../data/raw
 	$(UV) python -m copilot.pipelines.download
