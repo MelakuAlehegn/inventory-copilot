@@ -48,6 +48,12 @@ def load_prices() -> pl.LazyFrame:
     return pl.scan_csv(DATASETS / "sell_prices.csv")
 
 
+def read_features() -> pl.LazyFrame:
+    """Scan the materialized modeling frame, reconstructing store_id from the path."""
+    root = settings.processed_dir / "features"
+    return pl.scan_parquet(root / "**/*.parquet", hive_partitioning=True)
+
+
 def load_slice(category: str = "FOODS", stores: list[str] | None = None) -> pl.LazyFrame:
     """Long-format sales for one category (default FOODS) across the given stores.
 
