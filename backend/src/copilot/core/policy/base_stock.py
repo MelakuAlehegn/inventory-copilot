@@ -34,6 +34,11 @@ class PolicyParams:
     review_period: int = 7  # days between order reviews
     service_level: float = 0.95  # target in-stock probability per cycle
 
+    # Economics (used by the simulation's cost metrics).
+    holding_rate: float = 0.25 / 365  # daily holding cost as a fraction of unit value
+    order_cost: float = 10.0  # fixed cost per order placed
+    stockout_penalty: float = 1.0  # cost per lost unit as a multiple of unit price
+
     @property
     def protection(self) -> int:
         """Days of demand a base-stock level must cover: lead time + review period."""
