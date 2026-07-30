@@ -785,6 +785,9 @@ dev = [
 mcp = [
     { name = "mcp" },
 ]
+viz = [
+    { name = "matplotlib" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -798,6 +801,7 @@ requires-dist = [
     { name = "langgraph", marker = "extra == 'agent'", specifier = ">=0.2" },
     { name = "lightgbm", specifier = ">=4.3" },
     { name = "logfire", marker = "extra == 'agent'", specifier = ">=0.50" },
+    { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.8" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0" },
     { name = "mlflow", specifier = ">=2.14" },
     { name = "mlforecast", specifier = ">=0.13" },
@@ -819,7 +823,7 @@ requires-dist = [
     { name = "utilsforecast", specifier = ">=0.2" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'api'", specifier = ">=0.30" },
 ]
-provides-extras = ["api", "agent", "mcp", "dev"]
+provides-extras = ["api", "agent", "mcp", "viz", "dev"]
 
 [[package]]
 name = "itsdangerous"
