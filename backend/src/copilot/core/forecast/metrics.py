@@ -31,6 +31,23 @@ def pinball_loss(y: pl.Expr, yhat: pl.Expr, q: float) -> pl.Expr:
     return pl.max_horizontal(q * err, (q - 1) * err)
 
 
+def average_pinball(
+    forecast: pl.LazyFrame, actuals: pl.LazyFrame, quantiles: list[float]
+) -> dict[str, float]:
+    """Mean pinball loss per quantile column ``q{int(q*100)}`` and the average across them."""
+    joined = forecast.join(actuals.select("unique_id", "ds", "y"), on=["unique_id", "ds"])
+    names = [f"q{int(round(q * 100))}" for q in quantiles]
+    row = joined.select(
+        [
+            pinball_loss(pl.col("y"), pl.col(name), q).mean().alias(name)
+            for name, q in zip(names, quantiles, strict=True)
+        ]
+    ).collect()
+    per_q = {name: float(row[name][0]) for name in names}
+    per_q["mean"] = sum(per_q.values()) / len(per_q)
+    return per_q
+
+
 def _series_scale(train: pl.LazyFrame) -> pl.LazyFrame:
     """Per-series denominator: mean squared 1-step difference over training history."""
     diff = pl.col("y") - pl.col("y").shift(1).over("unique_id")
