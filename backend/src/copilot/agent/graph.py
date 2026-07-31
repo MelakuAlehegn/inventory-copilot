@@ -1,15 +1,19 @@
 """The inventory copilot agent, built by hand as a LangGraph StateGraph.
 
-This is the same "think -> call tool -> look -> repeat -> answer" loop the prebuilt
-`create_react_agent` gives you, but written out node by node so every piece is visible:
+The loop from step 4, now with a grounding referee before any answer escapes:
 
-    START -> agent -> (asked for a tool? -> tools -> back to agent : -> END)
+    START -> agent -> (asked for a tool? -> tools -> back to agent
+                       : final answer     -> grounding -> pass  -> END
+                                                        -> retry -> back to agent
+                                                        -> give up honestly -> END)
 
-- **State** is the shared notebook passed between nodes; here it's just the message list,
-  tagged with the `add_messages` reducer so nodes *append* messages instead of replacing.
-- The **agent** node is the brain: it calls the LLM (with tools attached).
-- The **tools** node is the hands: it runs whatever tools the brain asked for.
-- **should_continue** is the fork: loop to tools if the brain requested any, else stop.
+- **State** is the shared notebook: the message list (append via `add_messages`) plus a
+  small counter for how many grounding retries we've spent.
+- **agent** node = the brain (LLM with tools attached).
+- **tools** node = the hands (runs whatever the brain asked for).
+- **grounding** node = a plain-code referee (see agent/grounding.py): it checks every
+  number in the answer against what the tools returned. Pass -> done. Fail -> one do-over,
+  then an honest "couldn't verify" message rather than shipping an unverified figure.
 """
 
 from __future__ import annotations
@@ -17,19 +21,30 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any, TypedDict
 
-from langchain_core.messages import AnyMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
 from copilot.agent.context import CopilotContext
+from copilot.agent.grounding import check_grounding, grounded_numbers
 from copilot.agent.providers import get_chat_model
 from copilot.agent.tools import build_tools
 
+MAX_GROUNDING_RETRIES = 1  # one do-over, then be honest
+
 
 class AgentState(TypedDict):
-    """The shared notebook that flows through the graph. `add_messages` appends."""
+    """The shared notebook that flows through the graph."""
 
     messages: Annotated[list[AnyMessage], add_messages]
+    grounding_retries: int
+    route: str  # set by the grounding node to steer the fork after it
 
 
 def _system_prompt(ctx: CopilotContext) -> str:
@@ -39,10 +54,11 @@ def _system_prompt(ctx: CopilotContext) -> str:
     return (
         "You are an inventory-planning copilot for a retail dataset (M5 'FOODS' category, "
         "all stores). You help people understand inventory decisions by running tools.\n\n"
-        "GOLDEN RULE: you never do arithmetic yourself. For ANY number you report, you must "
-        "have obtained it from a tool call in this conversation, and you may only state "
-        "numbers that a tool actually returned. Never estimate, round loosely, or invent a "
-        "figure. If the tools can't answer something, say so plainly instead of guessing.\n\n"
+        "GOLDEN RULE: you never do arithmetic yourself except trivial, obvious combinations "
+        "of numbers the tools returned (e.g. subtracting two results for a difference). For "
+        "ANY number you report, you must have obtained it from a tool call in this "
+        "conversation, or computed it directly from such numbers. Never estimate, guess, or "
+        "invent a figure. If the tools can't answer something, say so plainly.\n\n"
         "Setting:\n"
         "- Two policies: 'base_stock' (forecast-driven) and 'naive' (recent-average baseline).\n"
         f"- The simulation replays real demand over the holdout horizon {start} to {end}.\n"
@@ -71,6 +87,42 @@ def message_text(message: AnyMessage) -> str:
     return "".join(parts)
 
 
+def _should_continue(state: AgentState) -> str:
+    """After the brain speaks: run tools it asked for, else go check the answer."""
+    last = state["messages"][-1]
+    return "tools" if getattr(last, "tool_calls", None) else "answer"
+
+
+def _grounding(state: AgentState) -> dict:
+    """Referee: verify the answer's numbers; pass, ask for one do-over, or fail honestly."""
+    messages = state["messages"]
+    answer = message_text(messages[-1])
+    result = check_grounding(answer, grounded_numbers(messages[:-1]))
+    retries = state.get("grounding_retries", 0)
+
+    if result.ok:
+        return {"route": "end"}
+
+    if retries < MAX_GROUNDING_RETRIES:
+        orphans = ", ".join(f"{o:g}" for o in result.orphans)
+        correction = HumanMessage(
+            f"Your previous answer included figures not backed by any tool result: {orphans}. "
+            "Answer again using ONLY numbers a tool returned (call tools again if needed), or "
+            "numbers you can compute directly from them. Remove anything you cannot verify."
+        )
+        return {"messages": [correction], "grounding_retries": retries + 1, "route": "retry"}
+
+    fallback = AIMessage(
+        "I can't fully verify some of the figures needed for that answer, so I won't guess. "
+        "Try rephrasing, or ask about a specific metric I can compute with the tools."
+    )
+    return {"messages": [fallback], "route": "end"}
+
+
+def _route_after_grounding(state: AgentState) -> str:
+    return state.get("route", "end")
+
+
 def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None):
     """Build and compile the copilot agent graph for a loaded data context."""
     model = model or get_chat_model()
@@ -95,15 +147,12 @@ def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None
             )
         return {"messages": outputs}
 
-    def should_continue(state: AgentState) -> str:
-        """Fork: if the brain requested tools, go run them; otherwise finish."""
-        last = state["messages"][-1]
-        return "tools" if getattr(last, "tool_calls", None) else "end"
-
     graph = StateGraph(AgentState)
     graph.add_node("agent", agent)
     graph.add_node("tools", tools_node)
+    graph.add_node("grounding", _grounding)
     graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", should_continue, {"tools": "tools", "end": END})
+    graph.add_conditional_edges("agent", _should_continue, {"tools": "tools", "answer": "grounding"})
     graph.add_edge("tools", "agent")
+    graph.add_conditional_edges("grounding", _route_after_grounding, {"retry": "agent", "end": END})
     return graph.compile(checkpointer=checkpointer)

@@ -21,8 +21,12 @@ from copilot.core.simulation.scenario import Scenario, run_scenario
 _PRECISION = {"fill_rate": 4, "stockout_day_rate": 4, "avg_on_hand": 2, "stockout_units": 1}
 
 
-def _round(metrics: dict[str, float]) -> dict[str, float]:
-    return {k: round(v, _PRECISION.get(k, 2)) for k, v in metrics.items()}
+def _round(metrics: dict) -> dict:
+    # Round numeric values for tidiness; pass non-numeric (e.g. the "policy" label) through.
+    return {
+        k: round(v, _PRECISION.get(k, 2)) if isinstance(v, (int, float)) else v
+        for k, v in metrics.items()
+    }
 
 
 def _parse_date(value: str | None) -> date | None:
