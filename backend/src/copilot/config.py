@@ -16,11 +16,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # --- LLM provider abstraction ---
-    llm_provider: str = Field(default="ollama")  # "ollama" | "groq"
-    llm_model: str = Field(default="qwen2.5:7b-instruct")
+    llm_provider: str = Field(default="gemini")  # "gemini" (now) | "ollama" (later)
+    llm_model: str = Field(default="gemini-2.5-flash")
+    # Gemini (free Google AI Studio key). GOOGLE_API_KEY is also what the underlying
+    # langchain-google-genai client reads by default.
+    google_api_key: str | None = None
+    # Ollama seam (local dev, added later).
     ollama_base_url: str = Field(default="http://localhost:11434/v1")
-    groq_api_key: str | None = None
-    groq_base_url: str = Field(default="https://api.groq.com/openai/v1")
 
     # --- database ---
     database_url: str = Field(

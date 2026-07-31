@@ -35,7 +35,7 @@ api = [
 agent = [
     "langgraph>=0.2",
     "langchain-core>=0.3",
-    "openai>=1.40",            # OpenAI-compatible client for Ollama + Groq
+    "langchain-google-genai>=2.0",  # Gemini chat model + native function calling
     "langfuse>=2.0",
     "logfire>=0.50",
 ]

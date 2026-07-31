@@ -1,7 +1,11 @@
 """LLM provider abstraction.
 
-A thin `LLMProvider` protocol with OpenAI-compatible implementations for Ollama
-(local dev, Qwen2.5) and Groq (prod, Llama-3.3-70B). Both speak the OpenAI API,
-so tool-calling and structured output share one code path; the active provider is
-chosen from settings. This proves open-weight serving portability across families.
+One function, ``get_chat_model()``, builds the LangChain chat model the agent uses,
+based on ``settings.llm_provider``. Gemini (free Google AI Studio key) is wired now;
+Ollama (local, open-weight) is a later addition behind the same function, so nothing
+else in the agent needs to know which provider is active.
 """
+
+from copilot.agent.providers.factory import get_chat_model
+
+__all__ = ["get_chat_model"]
