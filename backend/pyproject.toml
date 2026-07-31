@@ -50,6 +50,9 @@ dev = [
     "mypy>=1.10",
 ]
 
+[project.scripts]
+copilot-chat = "copilot.agent.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
