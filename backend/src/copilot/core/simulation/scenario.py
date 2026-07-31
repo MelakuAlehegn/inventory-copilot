@@ -42,12 +42,31 @@ class Scenario:
     demand_multiplier: float = 1.0  # scales actual demand (>1 = unanticipated shock)
     price_multiplier: float = 1.0  # scales unit price (cost sensitivity)
 
+    # Approximate price elasticity of demand: a price change of (price_multiplier - 1)
+    # induces a demand change of elasticity * (price_multiplier - 1). 0.0 = no coupling
+    # (price is cost-only). Typically negative: a discount (<1) lifts demand. This is a
+    # deliberate simplification of a real demand curve — flag it when reporting.
+    elasticity: float = 0.0
+
+    # Optional window for the demand shock (e.g. a promo week). When both are None the
+    # multiplier hits the whole horizon; otherwise it applies only inside [start, end].
+    shock_start: date | None = None
+    shock_end: date | None = None
+
+    # Cost-structure dials — only touch how outcomes are *costed*, not the physical flow.
+    holding_rate: float = PolicyParams.holding_rate  # daily holding cost as fraction of value
+    order_cost: float = PolicyParams.order_cost  # fixed cost per order placed
+    stockout_penalty: float = PolicyParams.stockout_penalty  # lost-unit cost x unit price
+
     def params(self) -> PolicyParams:
-        """The PolicyParams the planned levers imply (economics left at defaults)."""
+        """The PolicyParams these knobs imply (planned levers + cost structure)."""
         return PolicyParams(
             lead_time=self.lead_time,
             review_period=self.review_period,
             service_level=self.service_level,
+            holding_rate=self.holding_rate,
+            order_cost=self.order_cost,
+            stockout_penalty=self.stockout_penalty,
         )
 
 
@@ -82,7 +101,22 @@ def run_scenario(
     else:
         raise ValueError(f"unknown policy: {scenario.policy!r}")
 
-    shocked = actuals.with_columns((pl.col("y") * scenario.demand_multiplier).alias("y"))
+    in_window: pl.Expr = pl.lit(True)
+    if scenario.shock_start is not None:
+        in_window = in_window & (pl.col("ds") >= scenario.shock_start)
+    if scenario.shock_end is not None:
+        in_window = in_window & (pl.col("ds") <= scenario.shock_end)
+
+    # Combine the explicit demand shock with the price-induced demand change (elasticity),
+    # clamped so demand never goes negative. Both apply over the shock window.
+    price_demand_factor = 1.0 + scenario.elasticity * (scenario.price_multiplier - 1.0)
+    combined_multiplier = scenario.demand_multiplier * max(price_demand_factor, 0.0)
+    shocked = actuals.with_columns(
+        pl.when(in_window)
+        .then(pl.col("y") * combined_multiplier)
+        .otherwise(pl.col("y"))
+        .alias("y")
+    )
     priced = prices.with_columns(
         (pl.col("unit_price") * scenario.price_multiplier).alias("unit_price")
     )
