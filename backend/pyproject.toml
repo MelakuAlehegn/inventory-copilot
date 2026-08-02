@@ -52,6 +52,7 @@ dev = [
 
 [project.scripts]
 copilot-chat = "copilot.agent.cli:main"
+copilot-eval = "copilot.eval.agent_eval:main"
 
 [build-system]
 requires = ["hatchling"]

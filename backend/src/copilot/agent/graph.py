@@ -116,7 +116,7 @@ def _grounding(state: AgentState) -> dict:
         "I can't fully verify some of the figures needed for that answer, so I won't guess. "
         "Try rephrasing, or ask about a specific metric I can compute with the tools."
     )
-    return {"messages": [fallback], "route": "end"}
+    return {"messages": [fallback], "route": "failed"}
 
 
 def _route_after_grounding(state: AgentState) -> str:
@@ -154,5 +154,7 @@ def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None
     graph.add_edge(START, "agent")
     graph.add_conditional_edges("agent", _should_continue, {"tools": "tools", "answer": "grounding"})
     graph.add_edge("tools", "agent")
-    graph.add_conditional_edges("grounding", _route_after_grounding, {"retry": "agent", "end": END})
+    graph.add_conditional_edges(
+        "grounding", _route_after_grounding, {"retry": "agent", "end": END, "failed": END}
+    )
     return graph.compile(checkpointer=checkpointer)

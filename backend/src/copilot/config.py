@@ -16,13 +16,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # --- LLM provider abstraction ---
-    llm_provider: str = Field(default="gemini")  # "gemini" (now) | "ollama" (later)
+    llm_provider: str = Field(default="gemini")  # "gemini" | "ollama"
     llm_model: str = Field(default="gemini-2.5-flash")
-    # Gemini (free Google AI Studio key). GOOGLE_API_KEY is also what the underlying
-    # langchain-google-genai client reads by default.
-    google_api_key: str | None = None
-    # Ollama seam (local dev, added later).
+    google_api_key: str | None = None  # also read directly by the Google GenAI client
     ollama_base_url: str = Field(default="http://localhost:11434/v1")
+    # Optional client-side request pacing (requests/second) for batch jobs that must stay
+    # within an API's rate limits. None = unlimited; leave unset for interactive use.
+    llm_requests_per_second: float | None = None
 
     # --- database ---
     database_url: str = Field(
