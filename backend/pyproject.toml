@@ -53,6 +53,7 @@ dev = [
 [project.scripts]
 copilot-chat = "copilot.agent.cli:main"
 copilot-eval = "copilot.eval.agent_eval:main"
+copilot-eval-forecast = "copilot.eval.forecast_eval:main"
 copilot-judge-test = "copilot.eval.judge:main"
 
 [build-system]
