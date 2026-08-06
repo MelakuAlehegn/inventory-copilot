@@ -59,7 +59,7 @@ backtest: ## Rolling-origin forecast backtest (WRMSSE + pinball)
 simulate: ## Inventory simulation vs baseline -> headline numbers
 	$(MAKE) -C $(BACKEND) simulate
 
-eval: ## Full eval harness (forecast + decision + agent)
+eval: ## Eval scorecard: forecast + decision (agent opt-in: --with-agent)
 	$(MAKE) -C $(BACKEND) eval
 
 ## ----------------------------------------------------------------------------

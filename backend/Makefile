@@ -31,7 +31,7 @@ backtest: ## Rolling-origin forecast backtest (WRMSSE + pinball)
 simulate: ## Inventory simulation vs baseline -> headline numbers
 	$(UV) python -m copilot.eval.decision
 
-eval: ## Full eval harness (forecast + decision + agent)
+eval: ## Eval scorecard: forecast + decision (agent opt-in: --with-agent)
 	$(UV) python -m copilot.eval
 
 api: ## Run FastAPI (dev, reload)
