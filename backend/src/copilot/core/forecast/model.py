@@ -29,15 +29,28 @@ _LAG_TRANSFORMS = {7: [RollingMean(window_size=7)], 28: [RollingMean(window_size
 _DATE_FEATURES = ["dayofweek", "month", "day"]
 
 
+_LGBM_PARAMS: dict = {
+    "n_estimators": 100,
+    "learning_rate": 0.05,
+    "num_leaves": 64,
+    "random_state": 0,
+    "verbosity": -1,
+}
+
+
 def _lgbm(**kwargs: object) -> lgb.LGBMRegressor:
-    return lgb.LGBMRegressor(
-        n_estimators=100,
-        learning_rate=0.05,
-        num_leaves=64,
-        random_state=0,
-        verbosity=-1,
-        **kwargs,
-    )
+    return lgb.LGBMRegressor(**{**_LGBM_PARAMS, **kwargs})
+
+
+def model_params() -> dict:
+    """Flat model + feature configuration, for experiment logging."""
+    return {
+        "quantiles": QUANTILES,
+        "lags": _LAGS,
+        "date_features": _DATE_FEATURES,
+        "horizon": HORIZON,
+        **_LGBM_PARAMS,
+    }
 
 
 def _feature_kwargs() -> dict:

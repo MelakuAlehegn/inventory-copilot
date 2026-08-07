@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     logfire_token: str | None = None
 
     # --- experiment tracking ---
-    mlflow_tracking_uri: str = Field(default="./mlruns")
+    mlflow_tracking_uri: str = Field(default="sqlite:///mlflow.db")
 
     # --- paths ---
     data_dir: Path = Field(default=Path("../data"))
