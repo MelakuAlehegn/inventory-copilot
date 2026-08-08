@@ -29,6 +29,10 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://copilot:copilot@localhost:5432/copilot"
     )
 
+    # --- API ---
+    # Origins allowed to call the API (the frontend). Override via CORS_ORIGINS (JSON list).
+    cors_origins: list[str] = Field(default=["http://localhost:3000"])
+
     # --- observability ---
     langfuse_host: str | None = None
     langfuse_public_key: str | None = None
