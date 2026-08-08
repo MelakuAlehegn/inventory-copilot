@@ -6,6 +6,8 @@ from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import APIRouter
 
+from copilot.api.schemas.health import HealthResponse
+
 router = APIRouter(tags=["health"])
 
 try:
@@ -14,6 +16,6 @@ except PackageNotFoundError:  # running from source without an installed dist
     _VERSION = "unknown"
 
 
-@router.get("/health")
-def health() -> dict:
-    return {"status": "ok", "service": "inventory-copilot", "version": _VERSION}
+@router.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(status="ok", service="inventory-copilot", version=_VERSION)

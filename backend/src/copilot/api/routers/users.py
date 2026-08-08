@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
+from copilot.api.schemas.users import MeResponse
 from copilot.api.security import get_current_user
 from copilot.db.models import User
 
 router = APIRouter(tags=["users"])
 
 
-@router.get("/me")
-async def me(user: User = Depends(get_current_user)) -> dict:
-    return {"id": user.id, "email": user.email}
+@router.get("/me", response_model=MeResponse)
+async def me(user: User = Depends(get_current_user)) -> MeResponse:
+    return MeResponse(id=user.id, email=user.email)
