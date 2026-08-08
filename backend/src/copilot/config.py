@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # Origins allowed to call the API (the frontend). Override via CORS_ORIGINS (JSON list).
     cors_origins: list[str] = Field(default=["http://localhost:3000"])
 
+    # --- Auth ---
+    # Shared secret the frontend signs the Bearer JWT with and the backend verifies.
+    auth_jwt_secret: str | None = None
+    auth_jwt_algorithm: str = Field(default="HS256")
+
     # --- observability ---
     langfuse_host: str | None = None
     langfuse_public_key: str | None = None
