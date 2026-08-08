@@ -54,6 +54,7 @@ dev = [
 copilot-chat = "copilot.agent.cli:main"
 copilot-eval = "copilot.eval.__main__:main"
 copilot-eval-forecast = "copilot.eval.forecast:main"
+copilot-eval-backtest = "copilot.eval.backtest:main"
 copilot-eval-decision = "copilot.eval.decision:main"
 copilot-eval-agent = "copilot.eval.agent:main"
 copilot-judge-test = "copilot.eval.judge:main"

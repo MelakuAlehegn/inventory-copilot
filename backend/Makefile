@@ -26,7 +26,7 @@ train: ## Train the LightGBM quantile forecaster
 	$(UV) python -m copilot.pipelines.train
 
 backtest: ## Rolling-origin forecast backtest (WRMSSE + pinball)
-	$(UV) python -m copilot.eval.forecast
+	$(UV) python -m copilot.eval.backtest
 
 simulate: ## Inventory simulation vs baseline -> headline numbers
 	$(UV) python -m copilot.eval.decision
