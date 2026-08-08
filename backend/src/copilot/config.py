@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+psycopg://copilot:copilot@localhost:5432/copilot"
     )
+    # Migrations run against a direct (non-pooled) endpoint on serverless Postgres.
+    # Falls back to database_url when unset (e.g. local dev).
+    database_migration_url: str | None = None
 
     # --- API ---
     # Origins allowed to call the API (the frontend). Override via CORS_ORIGINS (JSON list).

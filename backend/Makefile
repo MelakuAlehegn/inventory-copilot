@@ -1,7 +1,7 @@
 # Backend task runner (Python, uv). Invoked by the top-level Makefile.
 .DEFAULT_GOAL := help
 .PHONY: help install install-all data-download data-build train backtest simulate eval \
-        api mcp test lint fmt typecheck clean
+        api mcp migration db-upgrade db-downgrade test lint fmt typecheck clean
 
 UV := uv run
 PKG := src/copilot
@@ -39,6 +39,15 @@ api: ## Run FastAPI (dev, reload)
 
 mcp: ## Run the optional MCP server exposing core tools
 	$(UV) python -m copilot.mcp.server
+
+migration: ## Autogenerate a migration: make migration m="message"
+	$(UV) alembic revision --autogenerate -m "$(m)"
+
+db-upgrade: ## Apply migrations to the latest revision
+	$(UV) alembic upgrade head
+
+db-downgrade: ## Roll back one migration
+	$(UV) alembic downgrade -1
 
 test: ## Run tests
 	$(UV) pytest
