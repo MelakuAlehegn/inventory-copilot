@@ -1,0 +1,141 @@
+"""Chat endpoints: stream the grounded agent over SSE and serve conversation history.
+
+The conversation is persisted in Postgres (the source of truth for memory); each turn we
+replay the prior user/assistant messages as context, run the agent, stream tool steps as
+they happen, then emit — and persist — the grounding-verified answer.
+"""
+
+from __future__ import annotations
+
+import json
+import uuid
+from collections.abc import AsyncIterator, Iterable
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sse_starlette.sse import EventSourceResponse
+
+from copilot.agent.graph import message_text
+from copilot.api.dependencies import get_agent
+from copilot.api.schemas.chat import ChatMessageResponse, ChatRequest, ChatSessionResponse
+from copilot.api.security import get_current_user
+from copilot.db.models import ChatMessage, ChatSession, User
+from copilot.db.session import async_session_maker, get_session
+
+router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def to_lc_history(rows: Iterable) -> list[AnyMessage]:
+    """Replay stored user/assistant text turns as LangChain messages (context for the agent).
+
+    Past tool calls are not replayed — the agent re-runs tools each turn — so only the
+    conversational text is reconstructed.
+    """
+    history: list[AnyMessage] = []
+    for row in rows:
+        if row.role == "user":
+            history.append(HumanMessage(row.content))
+        elif row.role == "assistant":
+            history.append(AIMessage(row.content))
+    return history
+
+
+async def _event_stream(agent, history: list[AnyMessage], session_id: uuid.UUID) -> AsyncIterator[dict]:
+    """Run the agent, streaming tool-step events, then the final answer, then persist it."""
+    final_text = ""
+    trace: list[dict] = []
+
+    async for chunk in agent.astream({"messages": history}, stream_mode="updates"):
+        for node, update in chunk.items():
+            if not isinstance(update, dict):
+                continue
+            for m in update.get("messages", []):
+                calls = getattr(m, "tool_calls", None)
+                if node == "agent" and calls:
+                    for c in calls:
+                        step = {"name": c["name"], "args": c["args"]}
+                        trace.append(step)
+                        yield {"event": "tool", "data": json.dumps(step)}
+                elif isinstance(m, AIMessage):
+                    final_text = message_text(m)
+
+    yield {"event": "message", "data": json.dumps({"session_id": str(session_id), "content": final_text})}
+
+    # Persist the assistant turn in its own session (the request session is torn down once
+    # the response starts streaming).
+    async with async_session_maker() as session:
+        session.add(
+            ChatMessage(
+                session_id=session_id,
+                role="assistant",
+                content=final_text,
+                tool_calls={"trace": trace} if trace else None,
+            )
+        )
+        await session.commit()
+
+    yield {"event": "done", "data": "{}"}
+
+
+@router.post("/stream")
+async def chat_stream(
+    body: ChatRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    agent=Depends(get_agent),
+) -> EventSourceResponse:
+    """Send a message; stream tool steps and the grounded answer; persist the exchange."""
+    if body.session_id is not None:
+        chat = await session.get(ChatSession, body.session_id)
+        if chat is None or chat.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")
+    else:
+        chat = ChatSession(user_id=user.id, title=body.message[:60])
+        session.add(chat)
+        await session.flush()  # assign chat.id
+
+    prior = (
+        await session.execute(
+            select(ChatMessage).where(ChatMessage.session_id == chat.id).order_by(ChatMessage.id)
+        )
+    ).scalars().all()
+    history = to_lc_history(prior)
+    history.append(HumanMessage(body.message))
+
+    session.add(ChatMessage(session_id=chat.id, role="user", content=body.message))
+    await session.commit()
+
+    return EventSourceResponse(_event_stream(agent, history, chat.id))
+
+
+@router.get("/sessions", response_model=list[ChatSessionResponse])
+async def list_sessions(
+    user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
+):
+    rows = (
+        await session.execute(
+            select(ChatSession)
+            .where(ChatSession.user_id == user.id)
+            .order_by(ChatSession.created_at.desc())
+        )
+    ).scalars().all()
+    return rows
+
+
+@router.get("/sessions/{session_id}/messages", response_model=list[ChatMessageResponse])
+async def get_messages(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    chat = await session.get(ChatSession, session_id)
+    if chat is None or chat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")
+    rows = (
+        await session.execute(
+            select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.id)
+        )
+    ).scalars().all()
+    return rows
