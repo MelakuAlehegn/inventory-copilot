@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from copilot.api.routers import chat, decisions, health, users
+from copilot.api.routers import analytics, chat, decisions, health, users
 from copilot.config import settings
 
 logger = logging.getLogger("copilot.api")
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router)
     app.include_router(chat.router)
     app.include_router(decisions.router)
+    app.include_router(analytics.router)
     return app
 
 
