@@ -7,6 +7,7 @@ stable owner to key to. Endpoints depend on ``get_current_user`` to enforce per-
 
 from __future__ import annotations
 
+import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -17,6 +18,16 @@ from copilot.db.models import User
 from copilot.db.session import get_session
 
 _bearer = HTTPBearer(auto_error=True)
+
+
+def hash_password(password: str) -> str:
+    """bcrypt hash for storage."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Check a plaintext password against a stored bcrypt hash."""
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
 
 
 def decode_token(token: str) -> dict:

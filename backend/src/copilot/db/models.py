@@ -19,9 +19,13 @@ from copilot.db.base import Base, TimestampMixin
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
-    # OAuth subject ("sub" claim) from the verified JWT — stable per provider identity.
+    # Identity subject: the OAuth "sub" for Google users, or "credentials:<uuid>" for
+    # email/password users. Stable per identity.
     id: Mapped[str] = mapped_column(primary_key=True)
-    email: Mapped[str | None] = mapped_column(index=True)
+    email: Mapped[str | None] = mapped_column(unique=True, index=True)
+    name: Mapped[str | None] = mapped_column(nullable=True)
+    # Set only for email/password users; None for OAuth users.
+    password_hash: Mapped[str | None] = mapped_column(nullable=True)
 
     scenarios: Mapped[list["SavedScenario"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
