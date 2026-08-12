@@ -13,6 +13,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from copilot.agent.context import CopilotContext
 from copilot.api.dependencies import get_context
+from copilot.api.security import get_current_user
 from copilot.api.schemas.decisions import (
     CompareRequest,
     CompareResponse,
@@ -28,7 +29,9 @@ from copilot.core.simulation.scenario import Scenario, run_scenario
 from copilot.eval.decision import decision_report
 from copilot.eval.forecast import evaluate_forecast
 
-router = APIRouter(prefix="/decisions", tags=["decisions"])
+# Internal tool: every decision endpoint requires a valid token (data is global, so we
+# gate for access, not per-user ownership).
+router = APIRouter(prefix="/decisions", tags=["decisions"], dependencies=[Depends(get_current_user)])
 
 
 def _run_scenario(ctx: CopilotContext, scenario: Scenario) -> dict:
