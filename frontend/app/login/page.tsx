@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Github } from "lucide-react";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 function GoogleIcon() {
   return (
@@ -15,10 +18,46 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      if (mode === "signup") {
+        const res = await fetch(`${API}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, name: name || null }),
+        });
+        if (!res.ok) {
+          setError(res.status === 409 ? "That email is already registered." : "Could not create the account.");
+          return;
+        }
+      }
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.error) {
+        setError("Incorrect email or password.");
+        return;
+      }
+      router.push("/");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        {/* Logo */}
         <div className="auth-logo">
           <div className="logo-mark" style={{ width: 36, height: 36 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -32,61 +71,57 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <h1 className="auth-heading">Welcome back</h1>
+        <h1 className="auth-heading">{mode === "signin" ? "Welcome back" : "Create your account"}</h1>
         <p className="auth-sub">
-          Sign in to access your forecasts, inventory recommendations,
-          and AI-powered scenario analysis.
+          {mode === "signin"
+            ? "Sign in to access your forecasts, inventory recommendations, and scenario analysis."
+            : "Set up an account to save scenarios and chat with the copilot."}
         </p>
 
-        <div>
-          <button
-            className="oauth-btn"
-            onClick={() => signIn("github", { callbackUrl: "/" })}
-            id="login-github"
-          >
-            <Github size={18} />
-            Continue with GitHub
-          </button>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "var(--sp-3)" }}>
+          {mode === "signup" && (
+            <input className="input" type="text" placeholder="Name (optional)" value={name}
+              onChange={(e) => setName(e.target.value)} autoComplete="name" />
+          )}
+          <input className="input" type="email" placeholder="Email" value={email} required
+            onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+          <input className="input" type="password" placeholder="Password" value={password} required
+            minLength={8} onChange={(e) => setPassword(e.target.value)}
+            autoComplete={mode === "signin" ? "current-password" : "new-password"} />
 
-          <button
-            className="oauth-btn"
-            onClick={() => signIn("google", { callbackUrl: "/" })}
-            id="login-google"
-          >
-            <GoogleIcon />
-            Continue with Google
+          {error && (
+            <div role="alert" style={{ color: "var(--danger)", fontSize: "var(--ts-sm)" }}>{error}</div>
+          )}
+
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
+        </form>
+
+        <p style={{ fontSize: "var(--ts-sm)", color: "var(--tx-tertiary)", marginTop: "var(--sp-3)" }}>
+          {mode === "signin" ? "No account yet? " : "Already have an account? "}
+          <button
+            type="button"
+            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
+            style={{ background: "none", border: "none", color: "var(--cu-500)", cursor: "pointer", padding: 0, font: "inherit" }}
+          >
+            {mode === "signin" ? "Create one" : "Sign in"}
+          </button>
+        </p>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)", margin: "var(--sp-5) 0", color: "var(--tx-tertiary)", fontSize: "var(--ts-xs)" }}>
+          <div style={{ flex: 1, height: 1, background: "var(--divider)" }} />
+          or
+          <div style={{ flex: 1, height: 1, background: "var(--divider)" }} />
         </div>
 
-        {/* What this is */}
-        <div style={{ marginTop: "var(--sp-10)", paddingTop: "var(--sp-6)", borderTop: "1px solid var(--divider)" }}>
-          <p style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", lineHeight: "var(--lh-relaxed)" }}>
-            <strong style={{ color: "var(--tx-secondary)", fontWeight: "var(--fw-semibold)" }}>What is this?</strong><br />
-            A production-grade retail AI system: LightGBM quantile forecasting,
-            base-stock inventory policy, what-if simulations, and a grounded
-            LangGraph agent that only reports numbers it actually computed.
-          </p>
-          <div style={{ marginTop: "var(--sp-4)", display: "flex", gap: "var(--sp-4)" }}>
-            {[
-              { label: "WRMSSE vs naive", value: "+19.6%" },
-              { label: "Stockout reduction", value: "−11.2%" },
-              { label: "M5 series", value: "14,370" },
-            ].map((s) => (
-              <div key={s.label}>
-                <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>
-                  {s.label}
-                </div>
-                <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-md)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)" }}>
-                  {s.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <button className="oauth-btn" onClick={() => signIn("google", { callbackUrl: "/" })} id="login-google">
+          <GoogleIcon />
+          Continue with Google
+        </button>
 
         <p className="auth-note">
-          By signing in you accept the terms of this demo.<br />
-          No data from your account is stored beyond sessions.
+          By continuing you accept the terms of this demo.
         </p>
       </div>
     </div>
