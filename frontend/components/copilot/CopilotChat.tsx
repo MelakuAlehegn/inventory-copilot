@@ -98,6 +98,8 @@ export interface CopilotChatProps {
   initialQuery?: string;
   /** Bump this key to start a fresh conversation from outside (e.g. a "New chat" button). */
   resetKey?: number;
+  /** A programmatic question (with a nonce); each new nonce is sent once. */
+  pendingAsk?: { text: string; nonce: number } | null;
 }
 
 /**
@@ -105,7 +107,7 @@ export interface CopilotChatProps {
  * full workspace (`/copilot`) or as a compact docked panel on any data page. One implementation
  * so both stay in lock-step.
  */
-export default function CopilotChat({ variant = "full", context, initialQuery, resetKey }: CopilotChatProps) {
+export default function CopilotChat({ variant = "full", context, initialQuery, resetKey, pendingAsk }: CopilotChatProps) {
   const { data: session } = useSession();
   const token = session?.backendToken;
   const isPanel = variant === "panel";
@@ -121,6 +123,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef   = useRef<HTMLTextAreaElement>(null);
   const sentInitial = useRef(false);
+  const lastAskNonce = useRef(0);
 
   useEffect(() => {
     if (!token || isPanel) return; // the panel keeps history out of the way
@@ -203,6 +206,14 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setInput("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
+
+  // Send a programmatic question once per new nonce (context is already up to date here).
+  useEffect(() => {
+    if (pendingAsk && pendingAsk.nonce !== lastAskNonce.current) {
+      lastAskNonce.current = pendingAsk.nonce;
+      sendMessage(pendingAsk.text);
+    }
+  }, [pendingAsk, sendMessage]);
 
   const welcome = (
     <div style={{ marginTop: isPanel ? "var(--sp-4)" : "var(--sp-8)" }}>

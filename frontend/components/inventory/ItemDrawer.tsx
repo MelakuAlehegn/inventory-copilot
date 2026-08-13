@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { InventoryItem } from "@/lib/types";
 import { fmtNumber, fmtCurrency, statusLabel } from "@/lib/utils";
 import { X, Package, TrendingUp, Clock, AlertTriangle, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { useCopilot } from "@/components/copilot/CopilotProvider";
 
 interface Props {
   item: InventoryItem | null;
@@ -35,6 +36,10 @@ function MetricRow({ label, value, sub }: { label: string; value: React.ReactNod
 }
 
 export function ItemDrawer({ item, onClose }: Props) {
+  const { ask, setContext, resetContext } = useCopilot();
+  // True while we're handing off to the copilot, so closing the drawer keeps the item context.
+  const handingOff = useRef(false);
+
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -49,7 +54,33 @@ export function ItemDrawer({ item, onClose }: Props) {
     return () => { document.body.style.overflow = ""; };
   }, [item]);
 
+  // Ground the copilot on the open item; restore page context when the drawer closes
+  // (unless we're handing off to the copilot, in which case keep the item context).
+  useEffect(() => {
+    if (!item) return;
+    setContext({
+      item_id: item.item_id,
+      store_id: item.store_id,
+      series_id: item.unique_id,
+      status: item.status,
+      current_stock: Math.round(item.current_stock),
+      reorder_point: Math.round(item.reorder_point),
+      recommended_order_qty: Math.round(item.recommended_order_qty),
+      ...(item.days_until_stockout != null ? { days_until_stockout: Math.round(item.days_until_stockout) } : {}),
+    });
+    return () => {
+      if (handingOff.current) { handingOff.current = false; return; }
+      resetContext();
+    };
+  }, [item, setContext, resetContext]);
+
   if (!item) return null;
+
+  const askCopilot = () => {
+    handingOff.current = true;
+    ask(`Why is ${item.item_id} at store ${item.store_id} flagged as ${statusLabel(item.status)}, and what should I do about it?`);
+    onClose();
+  };
 
   const statusConfig = {
     critical:  { cls: "badge-danger",  dot: "dot-danger",  icon: AlertTriangle },
@@ -204,15 +235,15 @@ export function ItemDrawer({ item, onClose }: Props) {
           borderTop: "1px solid var(--border)",
           display: "flex", gap: "var(--sp-3)",
         }}>
-          <Link
-            href={`/copilot?q=${encodeURIComponent(`What is the recommended reorder strategy for ${item.item_id} in store ${item.store_id}?`)}`}
+          <button
+            onClick={askCopilot}
             className="btn btn-primary"
             style={{ flex: 1, justifyContent: "center" }}
             id="drawer-ask-copilot"
           >
             <MessageSquare size={14} />
             Ask Copilot
-          </Link>
+          </button>
           <Link
             href={`/scenarios?item=${item.item_id}&store=${item.store_id}`}
             className="btn btn-secondary"

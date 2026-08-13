@@ -11,7 +11,7 @@ import { X, Cpu } from "lucide-react";
  * already the full copilot workspace. Kept mounted so the conversation survives open/close.
  */
 export default function CopilotDock() {
-  const { open, context, closePanel } = useCopilot();
+  const { open, context, pendingAsk, closePanel } = useCopilot();
   const pathname = usePathname();
   if (pathname === "/copilot") return null;
 
@@ -31,7 +31,7 @@ export default function CopilotDock() {
       <div className="copilot-dock-ctx">
         Grounded on <span className="mono">{String(context.item_id ?? context.page)}</span>
       </div>
-      <CopilotChat variant="panel" context={context} />
+      <CopilotChat variant="panel" context={context} pendingAsk={pendingAsk} />
     </aside>
   );
 }
