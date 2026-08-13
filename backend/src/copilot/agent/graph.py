@@ -63,7 +63,9 @@ def _system_prompt(ctx: CopilotContext) -> str:
         "- Two policies: 'base_stock' (forecast-driven) and 'naive' (recent-average baseline).\n"
         f"- The simulation replays real demand over the holdout horizon {start} to {end}.\n"
         "- Metrics returned by tools: fill_rate (service level achieved), stockout_units, "
-        "stockout_day_rate, avg_on_hand, holding_cost, stockout_cost, ordering_cost, total_cost.\n\n"
+        "stockout_day_rate, avg_on_hand, holding_cost, stockout_cost, ordering_cost, total_cost.\n"
+        "- You can also look up an individual item (a series id like 'FOODS_3_090_CA_3') for its "
+        "inventory position/recommendation and its demand forecast.\n\n"
         "Answer in plain, non-jargon language that a person with no retail background can follow."
     )
 

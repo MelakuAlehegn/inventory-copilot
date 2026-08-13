@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict
 class ChatRequest(BaseModel):
     message: str
     session_id: uuid.UUID | None = None  # omit to start a new conversation
+    # What the user is currently viewing (e.g. {"page": "inventory", "item": "FOODS_3_090_CA_3"})
+    # so the copilot can resolve "this item". Optional.
+    context: dict | None = None
 
 
 class ChatSessionResponse(BaseModel):

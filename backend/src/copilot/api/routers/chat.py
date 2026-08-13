@@ -12,7 +12,7 @@ import uuid
 from collections.abc import AsyncIterator, Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -25,6 +25,13 @@ from copilot.db.models import ChatMessage, ChatSession, User
 from copilot.db.session import async_session_maker, get_session
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def context_note(context: dict) -> str:
+    """A one-line note telling the agent what the user is currently viewing."""
+    return "Context — the user is currently viewing: " + ", ".join(
+        f"{k}={v}" for k, v in context.items()
+    )
 
 
 def to_lc_history(rows: Iterable) -> list[AnyMessage]:
@@ -102,6 +109,8 @@ async def chat_stream(
         )
     ).scalars().all()
     history = to_lc_history(prior)
+    if body.context:
+        history.append(SystemMessage(context_note(body.context)))
     history.append(HumanMessage(body.message))
 
     session.add(ChatMessage(session_id=chat.id, role="user", content=body.message))
