@@ -12,10 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 
 from copilot.agent.context import CopilotContext
-from copilot.api.dependencies import get_context
+from copilot.api.dependencies import get_context, get_forecast_summary
 from copilot.api.schemas.forecast import ForecastSeriesResponse, ForecastSummary
 from copilot.api.security import get_current_user
-from copilot.eval.forecast import evaluate_forecast
 
 router = APIRouter(prefix="/forecast", tags=["forecast"], dependencies=[Depends(get_current_user)])
 
@@ -39,11 +38,9 @@ def _series_points(ctx: CopilotContext, unique_id: str) -> list[dict] | None:
 
 
 @router.get("/summary", response_model=ForecastSummary)
-async def summary(ctx: CopilotContext = Depends(get_context)):
-    """Headline forecast accuracy vs the seasonal-naive baseline."""
-    scores = await run_in_threadpool(
-        evaluate_forecast, ctx.history, ctx.forecast, ctx.actuals.lazy(), ctx.cutoff
-    )
+async def summary():
+    """Headline forecast accuracy vs the seasonal-naive baseline (cached)."""
+    scores = await run_in_threadpool(get_forecast_summary)
     return ForecastSummary(**scores)
 
 

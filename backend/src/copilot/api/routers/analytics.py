@@ -17,6 +17,7 @@ from copilot.api.schemas.analytics import (
     StoreRow,
     TopSeriesRow,
 )
+from copilot.api.dependencies import get_kpis as get_kpis_cached
 from copilot.api.security import get_current_user
 from copilot.core.data import analytics
 
@@ -26,8 +27,8 @@ router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depend
 
 @router.get("/kpis", response_model=KpisResponse)
 async def get_kpis():
-    """Headline dataset KPIs (series/stores counts, date range, totals)."""
-    return await run_in_threadpool(analytics.kpis)
+    """Headline dataset KPIs (series/stores counts, date range, totals) — cached."""
+    return await run_in_threadpool(get_kpis_cached)
 
 
 @router.get("/top-series", response_model=list[TopSeriesRow])

@@ -8,11 +8,14 @@ grows — this module stays the thin composition root.
 from __future__ import annotations
 
 import logging
+import threading
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from copilot.api.dependencies import warm_caches
 from copilot.api.routers import (
     analytics,
     auth,
@@ -29,8 +32,17 @@ from copilot.config import settings
 logger = logging.getLogger("copilot.api")
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Warm the static caches in a background thread so startup (and the first request) don't
+    block on the simulation burst. If warming is slow the server still accepts traffic and
+    computes lazily on demand."""
+    threading.Thread(target=warm_caches, name="warm-caches", daemon=True).start()
+    yield
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Inventory Copilot API", version="0.1.0")
+    app = FastAPI(title="Inventory Copilot API", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
