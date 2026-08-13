@@ -1,31 +1,24 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import TopBar from "@/components/nav/TopBar";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { fmtPct, fmtCurrency } from "@/lib/utils";
-import type { ScenarioParams, ScenarioResult } from "@/lib/types";
+import type { ScenarioParams, PolicyMetrics, SavedScenario } from "@/lib/types";
 import { Play, Save, RotateCcw, GitCompare, X, Check } from "lucide-react";
 
-// ─── Default params ────────────────────────────────────────────────────────────
+// ─── Default params (backend ScenarioRequest field names) ───────────────────────
 const DEFAULTS: Required<ScenarioParams> = {
   policy: "base_stock",
-  lead_time_days: 7,
-  review_period_days: 7,
+  lead_time: 7,
+  review_period: 7,
   service_level: 0.95,
   demand_multiplier: 1.0,
   price_multiplier: 1.0,
   elasticity: 0.0,
   shock_start: null,
   shock_end: null,
-  holding_rate: 0.02,
-  order_cost: 10,
-  stockout_penalty: 2.0,
-};
-
-const BASELINE_METRICS = {
-  fill_rate: 0.9229, stockout_units: 64150, stockout_day_rate: 0.043,
-  avg_on_hand: 21.17, holding_cost: 169800, stockout_cost: 192450, total_cost: 829250,
 };
 
 // ─── Slider param row ─────────────────────────────────────────────────────────
@@ -55,14 +48,13 @@ function Param({
 
 // ─── Metric comparison row ────────────────────────────────────────────────────
 function CompareRow({
-  label, baseline, left, right, leftName, rightName, fmt, lowerBetter,
+  label, baseline, left, right, fmt, lowerBetter,
 }: {
-  label: string; baseline: number; left?: number; right?: number;
-  leftName: string; rightName: string;
+  label: string; baseline: number | null; left?: number; right?: number;
   fmt: (v: number) => string; lowerBetter: boolean;
 }) {
-  const deltaLeft  = left  != null ? ((left  - baseline) / baseline) * 100 : null;
-  const deltaRight = right != null ? ((right - baseline) / baseline) * 100 : null;
+  const deltaLeft  = left  != null && baseline != null ? ((left  - baseline) / baseline) * 100 : null;
+  const deltaRight = right != null && baseline != null ? ((right - baseline) / baseline) * 100 : null;
 
   const winner = (dl: number | null, dr: number | null) => {
     if (dl == null || dr == null) return null;
@@ -115,9 +107,8 @@ function CompareRow({
 }
 
 // ─── Saved scenario card ──────────────────────────────────────────────────────
-interface Saved { id: string; name: string; result: ScenarioResult }
-
-function ScenarioCard({ s, onRemove }: { s: Saved; onRemove: () => void }) {
+function ScenarioCard({ s, onRemove }: { s: SavedScenario; onRemove: () => void }) {
+  const p = s.params;
   return (
     <div style={{
       padding: "var(--sp-4)", background: "var(--surface)",
@@ -127,28 +118,13 @@ function ScenarioCard({ s, onRemove }: { s: Saved; onRemove: () => void }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "var(--ts-sm)", fontWeight: "var(--fw-semibold)", marginBottom: "var(--sp-1)" }}>{s.name}</div>
         <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
-          SL {fmtPct(s.result.params.service_level ?? 0.95)} ·
-          Fill {fmtPct(s.result.metrics.fill_rate)} ·
-          Cost {fmtCurrency(s.result.metrics.total_cost)} ·
-          {s.result.params.policy === "base_stock" ? " Base-Stock" : " Naive"}
+          {p.policy === "naive" ? "Naive" : "Base-Stock"} ·
+          SL {fmtPct(p.service_level ?? 0.95)} ·
+          Lead {p.lead_time ?? 7}d ·
+          Demand ×{(p.demand_multiplier ?? 1).toFixed(2)}
         </div>
-        {/* Mini bar */}
-        <div style={{ marginTop: "var(--sp-2)", display: "flex", gap: "var(--sp-3)" }}>
-          {[
-            { label: "Fill", val: s.result.metrics.fill_rate, ref: BASELINE_METRICS.fill_rate, pct: true, lowerBetter: false },
-            { label: "Cost", val: s.result.metrics.total_cost, ref: BASELINE_METRICS.total_cost, pct: false, lowerBetter: true },
-          ].map((m) => {
-            const delta = ((m.val - m.ref) / m.ref) * 100;
-            const good = m.lowerBetter ? delta < 0 : delta > 0;
-            return (
-              <div key={m.label} style={{ fontSize: "var(--ts-xs)", display: "flex", gap: 4, alignItems: "center" }}>
-                <span style={{ color: "var(--tx-tertiary)" }}>{m.label}</span>
-                <span style={{ color: good ? "var(--ok-text)" : "var(--dn-text)", fontWeight: "var(--fw-semibold)" }}>
-                  {delta > 0 ? "+" : ""}{delta.toFixed(1)}%
-                </span>
-              </div>
-            );
-          })}
+        <div style={{ marginTop: "var(--sp-2)", fontSize: "var(--ts-xs)", color: "var(--tx-disabled)" }}>
+          Saved {new Date(s.created_at).toLocaleDateString()}
         </div>
       </div>
       <button className="btn btn-ghost btn-icon btn-sm" onClick={onRemove} title="Remove">
@@ -160,15 +136,29 @@ function ScenarioCard({ s, onRemove }: { s: Saved; onRemove: () => void }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function ScenariosPage() {
+  const { data: session } = useSession();
+  const token = session?.backendToken;
+
   const [paramsA, setParamsA] = useState<Required<ScenarioParams>>(DEFAULTS);
   const [paramsB, setParamsB] = useState<Required<ScenarioParams>>({ ...DEFAULTS, service_level: 0.99, demand_multiplier: 1.3 });
-  const [resultA, setResultA] = useState<ScenarioResult | null>(null);
-  const [resultB, setResultB] = useState<ScenarioResult | null>(null);
+  const [resultA, setResultA] = useState<PolicyMetrics | null>(null);
+  const [resultB, setResultB] = useState<PolicyMetrics | null>(null);
   const [loadingA, setLoadingA] = useState(false);
   const [loadingB, setLoadingB] = useState(false);
   const [mode, setMode] = useState<"single" | "compare">("single");
-  const [saved, setSaved] = useState<Saved[]>([]);
-  const [saveCount, setSaveCount] = useState(0);
+  const [baseline, setBaseline] = useState<PolicyMetrics | null>(null);
+  const [saved, setSaved] = useState<SavedScenario[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load the naive baseline (for deltas) and the saved-scenario library.
+  useEffect(() => {
+    if (!token) return;
+    const api = apiClient(token);
+    api.comparePolicies({ service_level: DEFAULTS.service_level, lead_time: DEFAULTS.lead_time, review_period: DEFAULTS.review_period })
+      .then((r) => setBaseline(r.naive))
+      .catch(() => setBaseline(null));
+    api.getScenarios().then(setSaved).catch(() => setSaved([]));
+  }, [token]);
 
   const setA = useCallback(<K extends keyof ScenarioParams>(k: K, v: ScenarioParams[K]) => {
     setParamsA((p) => ({ ...p, [k]: v }));
@@ -178,37 +168,56 @@ export default function ScenariosPage() {
   }, []);
 
   const runA = async () => {
-    setLoadingA(true);
-    setResultA(await api.runWhatIf(paramsA));
-    setLoadingA(false);
+    if (!token) return;
+    setLoadingA(true); setError(null);
+    try { setResultA(await apiClient(token).runWhatIf(paramsA)); }
+    catch { setError("Couldn't run scenario A."); }
+    finally { setLoadingA(false); }
   };
 
   const runB = async () => {
-    setLoadingB(true);
-    setResultB(await api.runWhatIf(paramsB));
-    setLoadingB(false);
+    if (!token) return;
+    setLoadingB(true); setError(null);
+    try { setResultB(await apiClient(token).runWhatIf(paramsB)); }
+    catch { setError("Couldn't run scenario B."); }
+    finally { setLoadingB(false); }
   };
 
   const runBoth = async () => { await Promise.all([runA(), runB()]); };
 
-  const saveResult = (result: ScenarioResult, prefix: string) => {
-    const id = `s-${Date.now()}`;
-    const n = saveCount + 1;
-    setSaveCount(n);
-    setSaved((s) => [...s, {
-      id, name: `${prefix} — Scenario ${n}`,
-      result,
-    }]);
+  const nameFor = (p: Required<ScenarioParams>, prefix: string) =>
+    `${prefix ? prefix + " — " : ""}${p.policy === "naive" ? "Naive" : "Base-Stock"} · SL ${fmtPct(p.service_level)} · ×${p.demand_multiplier.toFixed(2)}`;
+
+  const saveScenario = async (p: Required<ScenarioParams>, prefix: string) => {
+    if (!token) return;
+    setError(null);
+    try {
+      await apiClient(token).saveScenario(nameFor(p, prefix), p);
+      const list = await apiClient(token).getScenarios();
+      setSaved(list);
+    } catch {
+      setError("Couldn't save scenario.");
+    }
+  };
+
+  const removeScenario = async (id: string) => {
+    if (!token) return;
+    try {
+      await apiClient(token).deleteScenario(id);
+      setSaved((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      setError("Couldn't delete scenario.");
+    }
   };
 
   const METRICS = [
-    { label: "Fill Rate",         key: "fill_rate",         fmt: (v: number) => fmtPct(v),         lowerBetter: false },
+    { label: "Fill Rate",         key: "fill_rate",         fmt: (v: number) => fmtPct(v),          lowerBetter: false },
     { label: "Stockout Units",    key: "stockout_units",    fmt: (v: number) => v.toLocaleString(), lowerBetter: true  },
-    { label: "Stockout-Day Rate", key: "stockout_day_rate", fmt: (v: number) => fmtPct(v),         lowerBetter: true  },
+    { label: "Stockout-Day Rate", key: "stockout_day_rate", fmt: (v: number) => fmtPct(v),          lowerBetter: true  },
     { label: "Avg On-Hand",       key: "avg_on_hand",       fmt: (v: number) => v.toFixed(2),       lowerBetter: true  },
-    { label: "Holding Cost",      key: "holding_cost",      fmt: (v: number) => fmtCurrency(v),    lowerBetter: true  },
-    { label: "Stockout Cost",     key: "stockout_cost",     fmt: (v: number) => fmtCurrency(v),    lowerBetter: true  },
-    { label: "Total Cost",        key: "total_cost",        fmt: (v: number) => fmtCurrency(v),    lowerBetter: true  },
+    { label: "Holding Cost",      key: "holding_cost",      fmt: (v: number) => fmtCurrency(v),     lowerBetter: true  },
+    { label: "Stockout Cost",     key: "stockout_cost",     fmt: (v: number) => fmtCurrency(v),     lowerBetter: true  },
+    { label: "Total Cost",        key: "total_cost",        fmt: (v: number) => fmtCurrency(v),     lowerBetter: true  },
   ] as const;
 
   return (
@@ -237,6 +246,16 @@ export default function ScenariosPage() {
       />
 
       <div className="page-body">
+        {error && (
+          <div style={{
+            padding: "var(--sp-3) var(--sp-4)", marginBottom: "var(--sp-5)",
+            background: "var(--dn-bg)", border: "1px solid #E8AAAA",
+            borderRadius: "var(--r-md)", fontSize: "var(--ts-sm)", color: "var(--dn-text)",
+          }}>
+            {error}
+          </div>
+        )}
+
         {mode === "single" ? (
           /* ── Single scenario mode ──────────────────────── */
           <div className="scenario-grid">
@@ -267,9 +286,9 @@ export default function ScenariosPage() {
 
               <div className="divider" />
               <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-4)" }}>Planned</div>
-              <Param label="Lead Time"     id="a-lead"    min={1}    max={30}   step={1}     fmt={(v) => `${v} days`}      value={paramsA.lead_time_days}      onChange={(v) => setA("lead_time_days", v)}      hint="Days from order to arrival" />
-              <Param label="Review Period" id="a-review"  min={1}    max={14}   step={1}     fmt={(v) => `${v} days`}      value={paramsA.review_period_days}  onChange={(v) => setA("review_period_days", v)}  hint="How often stock is checked" />
-              <Param label="Service Level" id="a-sl"      min={0.80} max={0.999} step={0.005} fmt={fmtPct}                 value={paramsA.service_level}       onChange={(v) => setA("service_level", v)}       hint="Target demand coverage probability" />
+              <Param label="Lead Time"     id="a-lead"    min={1}    max={30}   step={1}     fmt={(v) => `${v} days`}      value={paramsA.lead_time}      onChange={(v) => setA("lead_time", v)}      hint="Days from order to arrival" />
+              <Param label="Review Period" id="a-review"  min={1}    max={14}   step={1}     fmt={(v) => `${v} days`}      value={paramsA.review_period}  onChange={(v) => setA("review_period", v)}  hint="How often stock is checked" />
+              <Param label="Service Level" id="a-sl"      min={0.80} max={0.999} step={0.005} fmt={fmtPct}                 value={paramsA.service_level}  onChange={(v) => setA("service_level", v)}  hint="Target demand coverage probability" />
 
               <div className="divider" />
               <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-4)" }}>Realized / Shock</div>
@@ -277,15 +296,10 @@ export default function ScenariosPage() {
               <Param label="Price Multiplier"  id="a-price"  min={0.5} max={2.0} step={0.05} fmt={(v) => `×${v.toFixed(2)}`} value={paramsA.price_multiplier}  onChange={(v) => setA("price_multiplier", v)}  hint="Price change (affects cost; combine with elasticity for demand)" />
               <Param label="Elasticity"        id="a-elas"   min={-3}  max={0}   step={0.1}  fmt={(v) => v.toFixed(1)}        value={paramsA.elasticity}         onChange={(v) => setA("elasticity", v)}         hint="Demand response to price change (0 = none; -2 = 10% price → -20% demand)" />
 
-              <div className="divider" />
-              <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-4)" }}>Economics</div>
-              <Param label="Holding Rate"       id="a-holding" min={0.005} max={0.1} step={0.005} fmt={fmtPct}            value={paramsA.holding_rate}     onChange={(v) => setA("holding_rate", v)}      hint="Daily holding cost as % of unit value" />
-              <Param label="Stockout Penalty"   id="a-penalty" min={0.5}   max={10}  step={0.5}   fmt={(v) => `×${v.toFixed(1)}`} value={paramsA.stockout_penalty} onChange={(v) => setA("stockout_penalty", v)} hint="Lost-sale cost multiplier" />
-
               <button
                 className="btn btn-primary"
                 style={{ width: "100%", marginTop: "var(--sp-4)", height: 42, fontSize: "var(--ts-md)" }}
-                onClick={runA} disabled={loadingA} id="run-a"
+                onClick={runA} disabled={loadingA || !token} id="run-a"
               >
                 {loadingA ? <span className="spinner" /> : <Play size={16} />}
                 {loadingA ? "Running…" : "Run Simulation"}
@@ -297,7 +311,7 @@ export default function ScenariosPage() {
               <div className="section-hdr" style={{ marginBottom: "var(--sp-5)" }}>
                 <div className="section-title">{resultA ? "Results" : "Configure & Run"}</div>
                 {resultA && (
-                  <button className="btn btn-secondary btn-sm" onClick={() => saveResult(resultA, "")} id="save-a">
+                  <button className="btn btn-secondary btn-sm" onClick={() => saveScenario(paramsA, "")} id="save-a">
                     <Save size={13} /> Save
                   </button>
                 )}
@@ -314,15 +328,15 @@ export default function ScenariosPage() {
                   <div className="metric-strip" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: "var(--sp-5)" }}>
                     <div className="metric-cell">
                       <div className="metric-label">Fill Rate</div>
-                      <div className={`metric-value ${resultA.metrics.fill_rate >= BASELINE_METRICS.fill_rate ? "success" : "danger"}`}>
-                        {fmtPct(resultA.metrics.fill_rate)}
+                      <div className={`metric-value ${baseline == null || resultA.fill_rate >= baseline.fill_rate ? "success" : "danger"}`}>
+                        {fmtPct(resultA.fill_rate)}
                       </div>
-                      <div className="metric-context">Baseline: {fmtPct(BASELINE_METRICS.fill_rate)}</div>
+                      <div className="metric-context">Baseline: {baseline != null ? fmtPct(baseline.fill_rate) : "—"}</div>
                     </div>
                     <div className="metric-cell">
                       <div className="metric-label">Total Cost</div>
-                      <div className="metric-value">{fmtCurrency(resultA.metrics.total_cost)}</div>
-                      <div className="metric-context">Baseline: {fmtCurrency(BASELINE_METRICS.total_cost)}</div>
+                      <div className="metric-value">{fmtCurrency(resultA.total_cost)}</div>
+                      <div className="metric-context">Baseline: {baseline != null ? fmtCurrency(baseline.total_cost) : "—"}</div>
                     </div>
                   </div>
 
@@ -333,18 +347,18 @@ export default function ScenariosPage() {
                     </div>
                     <div>
                       {METRICS.map((m) => {
-                        const base  = BASELINE_METRICS[m.key as keyof typeof BASELINE_METRICS] as number;
-                        const res   = resultA.metrics[m.key as keyof typeof resultA.metrics] as number;
-                        const delta = ((res - base) / base) * 100;
-                        const better = m.lowerBetter ? delta < -0.5 : delta > 0.5;
-                        const worse  = m.lowerBetter ? delta > 0.5  : delta < -0.5;
+                        const base  = baseline ? (baseline[m.key] as number) : null;
+                        const res   = resultA[m.key] as number;
+                        const delta = base != null ? ((res - base) / base) * 100 : null;
+                        const better = delta != null && (m.lowerBetter ? delta < -0.5 : delta > 0.5);
+                        const worse  = delta != null && (m.lowerBetter ? delta > 0.5  : delta < -0.5);
                         return (
                           <div key={m.key} className="result-delta">
                             <span className="result-metric-name">{m.label}</span>
-                            <span className="result-baseline">{m.fmt(base)}</span>
+                            <span className="result-baseline">{base != null ? m.fmt(base) : "—"}</span>
                             <span className="result-policy">{m.fmt(res)}</span>
                             <span className={`result-change ${better ? "better" : worse ? "worse" : ""}`}>
-                              {delta > 0 ? "+" : ""}{delta.toFixed(1)}%
+                              {delta != null ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}%` : "—"}
                             </span>
                           </div>
                         );
@@ -363,7 +377,7 @@ export default function ScenariosPage() {
           /* ── A/B compare mode ──────────────────────────── */
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--sp-6)", marginBottom: "var(--sp-8)" }}>
-              {/* Scenario A */}
+              {/* Scenario A / B */}
               {(["A", "B"] as const).map((side) => {
                 const params  = side === "A" ? paramsA : paramsB;
                 const setP    = side === "A" ? setA    : setB;
@@ -399,12 +413,12 @@ export default function ScenariosPage() {
 
                     <div style={{ padding: "var(--sp-4) var(--sp-5)" }}>
                       <Param label="Service Level"     id={`${side}-sl`}     min={0.80} max={0.999} step={0.005} fmt={fmtPct}                  value={params.service_level}     onChange={(v) => setP("service_level", v)}     hint="Target service level" />
-                      <Param label="Lead Time"         id={`${side}-lead`}   min={1}    max={30}    step={1}     fmt={(v) => `${v}d`}           value={params.lead_time_days}    onChange={(v) => setP("lead_time_days", v)}    hint="Days to replenishment" />
+                      <Param label="Lead Time"         id={`${side}-lead`}   min={1}    max={30}    step={1}     fmt={(v) => `${v}d`}           value={params.lead_time}         onChange={(v) => setP("lead_time", v)}         hint="Days to replenishment" />
                       <Param label="Demand Multiplier" id={`${side}-demand`} min={0.5}  max={2.5}   step={0.05}  fmt={(v) => `×${v.toFixed(2)}`} value={params.demand_multiplier} onChange={(v) => setP("demand_multiplier", v)} hint="Demand shock" />
 
                       <button
                         className="btn btn-primary" style={{ width: "100%", marginTop: "var(--sp-3)" }}
-                        onClick={run} disabled={loading} id={`run-${side.toLowerCase()}`}
+                        onClick={run} disabled={loading || !token} id={`run-${side.toLowerCase()}`}
                       >
                         {loading ? <span className="spinner" /> : <Play size={14} />}
                         {loading ? "Running…" : `Run ${label}`}
@@ -414,11 +428,11 @@ export default function ScenariosPage() {
                         <div style={{ marginTop: "var(--sp-4)", padding: "var(--sp-4)", background: "var(--surface-raised)", borderRadius: "var(--r-md)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--sp-2)" }}>
                             <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Fill Rate</span>
-                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)", color: "var(--ok-text)" }}>{fmtPct(result.metrics.fill_rate)}</span>
+                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)", color: "var(--ok-text)" }}>{fmtPct(result.fill_rate)}</span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Total Cost</span>
-                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)" }}>{fmtCurrency(result.metrics.total_cost)}</span>
+                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)" }}>{fmtCurrency(result.total_cost)}</span>
                           </div>
                         </div>
                       )}
@@ -430,16 +444,16 @@ export default function ScenariosPage() {
 
             {/* Run both */}
             <div style={{ display: "flex", gap: "var(--sp-3)", marginBottom: "var(--sp-8)", justifyContent: "center" }}>
-              <button className="btn btn-primary btn-lg" onClick={runBoth} disabled={loadingA || loadingB} id="run-both">
+              <button className="btn btn-primary btn-lg" onClick={runBoth} disabled={loadingA || loadingB || !token} id="run-both">
                 {(loadingA || loadingB) ? <span className="spinner" /> : <Play size={16} />}
                 Run Both Scenarios
               </button>
               {resultA && resultB && (
                 <>
-                  <button className="btn btn-secondary" onClick={() => saveResult(resultA, "A")} id="save-compare-a">
+                  <button className="btn btn-secondary" onClick={() => saveScenario(paramsA, "A")} id="save-compare-a">
                     <Save size={13} /> Save A
                   </button>
-                  <button className="btn btn-secondary" onClick={() => saveResult(resultB, "B")} id="save-compare-b">
+                  <button className="btn btn-secondary" onClick={() => saveScenario(paramsB, "B")} id="save-compare-b">
                     <Save size={13} /> Save B
                   </button>
                 </>
@@ -470,18 +484,16 @@ export default function ScenariosPage() {
                     <CompareRow
                       key={m.key}
                       label={m.label}
-                      baseline={BASELINE_METRICS[m.key as keyof typeof BASELINE_METRICS] as number}
-                      left={resultA?.metrics[m.key as keyof typeof resultA.metrics] as number | undefined}
-                      right={resultB?.metrics[m.key as keyof typeof resultB.metrics] as number | undefined}
-                      leftName="Scenario A"
-                      rightName="Scenario B"
+                      baseline={baseline ? (baseline[m.key] as number) : null}
+                      left={resultA ? (resultA[m.key] as number) : undefined}
+                      right={resultB ? (resultB[m.key] as number) : undefined}
                       fmt={m.fmt as (v: number) => string}
                       lowerBetter={m.lowerBetter}
                     />
                   ))}
                 </div>
                 <div style={{ marginTop: "var(--sp-3)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
-                  Deltas vs naive baseline ({fmtPct(BASELINE_METRICS.fill_rate)} fill · {fmtCurrency(BASELINE_METRICS.total_cost)} total cost).{" "}
+                  Deltas vs naive baseline{baseline ? ` (${fmtPct(baseline.fill_rate)} fill · ${fmtCurrency(baseline.total_cost)} total cost)` : ""}.{" "}
                   <a href="/copilot" style={{ color: "var(--cu-500)" }}>Ask copilot to explain the difference →</a>
                 </div>
               </div>
@@ -494,13 +506,10 @@ export default function ScenariosPage() {
           <div className="section" style={{ marginTop: "var(--sp-10)" }}>
             <div className="section-hdr">
               <div className="section-title">Saved Scenarios</div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSaved([])} id="clear-saved">
-                Clear all
-              </button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "var(--sp-3)" }}>
               {saved.map((s) => (
-                <ScenarioCard key={s.id} s={s} onRemove={() => setSaved((prev) => prev.filter((p) => p.id !== s.id))} />
+                <ScenarioCard key={s.id} s={s} onRemove={() => removeScenario(s.id)} />
               ))}
             </div>
           </div>

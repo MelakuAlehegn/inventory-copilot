@@ -149,8 +149,8 @@ function ForecastTooltip({ active, payload, label }: { active?: boolean; payload
 }
 
 export function ForecastChart({ data, height = 300 }: ForecastChartProps) {
-  const cutoff = data.findIndex((d) => d.actual === undefined);
-  const cutoffDate = cutoff >= 0 ? data[cutoff]?.date : undefined;
+  const cutoff = data.findIndex((d) => d.actual == null);
+  const cutoffDate = cutoff >= 0 ? data[cutoff]?.ds : undefined;
 
   return (
     <div style={{ width: "100%", height }}>
@@ -158,7 +158,7 @@ export function ForecastChart({ data, height = 300 }: ForecastChartProps) {
         <LineChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
           <CartesianGrid stroke="#ECEAE4" strokeDasharray="4 4" />
           <XAxis
-            dataKey="date"
+            dataKey="ds"
             tick={{ fontSize: 10, fill: "#9A9184", fontFamily: "Inter, sans-serif" }}
             tickLine={false}
             axisLine={{ stroke: "#E2DDD5" }}

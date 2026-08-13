@@ -27,7 +27,7 @@ export function fmtDelta(value: number, pct = false): string {
 
 export function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    ok: "In Stock",
+    healthy: "Healthy",
     reorder: "Reorder Soon",
     critical: "Critical",
     overstock: "Overstock",

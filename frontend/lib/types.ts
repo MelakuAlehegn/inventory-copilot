@@ -1,44 +1,49 @@
 // ─── Inventory ────────────────────────────────────────────────────────────────
+export type InventoryStatus = "healthy" | "reorder" | "critical" | "overstock";
+
 export interface InventoryItem {
+  unique_id: string;
   item_id: string;
   store_id: string;
-  category: string;
-  name: string;
   current_stock: number;
   reorder_point: number;
+  safety_stock: number;
   order_up_to: number;
-  lead_time_days: number;
-  review_period_days: number;
-  unit_price: number;
-  status: "ok" | "reorder" | "critical" | "overstock";
+  recommended_order_qty: number;
+  mean_daily_demand: number;
   days_until_stockout: number | null;
-  fill_rate: number;
-  last_updated: string;
+  status: InventoryStatus;
+  unit_price: number | null;
 }
 
 // ─── Forecast ─────────────────────────────────────────────────────────────────
 export interface ForecastPoint {
-  date: string;
+  ds: string;
   q50: number;
   q80: number;
   q90: number;
   q95: number;
   q99: number;
-  actual?: number;
+  actual: number | null;
+}
+
+export interface ForecastSeries {
+  unique_id: string;
+  cutoff: string;
+  points: ForecastPoint[];
 }
 
 export interface ForecastSummary {
-  wrmsse: number;
-  wrmsse_vs_naive: number;
-  wrmsse_improvement_pct: number;
-  mean_pinball: number;
+  wrmsse_model: number;
+  wrmsse_naive: number;
+  wrmsse_improvement: number;
+  mean_rmsse_model: number;
+  pinball_mean: number;
   n_series: number;
-  horizon_days: number;
 }
 
 // ─── Simulation / Decisions ───────────────────────────────────────────────────
 export interface PolicyMetrics {
-  policy: string;
   fill_rate: number;
   stockout_units: number;
   stockout_day_rate: number;
@@ -49,90 +54,119 @@ export interface PolicyMetrics {
   total_cost: number;
 }
 
+export interface CompareResult {
+  base_stock: PolicyMetrics;
+  naive: PolicyMetrics;
+  delta: Record<string, number>;
+}
+
+// Backend ParetoRow + a computed combined_cost (holding_cost + stockout_cost).
 export interface ParetoPoint {
   service_level: number;
   policy: string;
   fill_rate: number;
+  stockout_units: number;
+  stockout_day_rate: number;
+  avg_on_hand: number;
   holding_cost: number;
   stockout_cost: number;
+  ordering_cost: number;
+  total_cost: number;
   combined_cost: number;
 }
 
+export interface ForecastScore {
+  wrmsse_model: number;
+  wrmsse_naive: number;
+  wrmsse_improvement: number;
+  mean_rmsse_model: number;
+  pinball_mean: number;
+  n_series: number;
+}
+
+export interface DecisionScore {
+  service_level: number;
+  fill_rate_model: number;
+  fill_rate_naive: number;
+  stockout_day_rate_model: number;
+  stockout_day_rate_naive: number;
+  stockout_units_reduction: number;
+  holding_cost_reduction: number;
+  stockout_cost_reduction: number;
+  total_cost_reduction: number;
+}
+
+export interface Scorecard {
+  forecast: ForecastScore;
+  decision: DecisionScore;
+}
+
 // ─── What-If Scenario ─────────────────────────────────────────────────────────
+// Mirrors the backend ScenarioRequest field names exactly.
 export interface ScenarioParams {
   policy?: "base_stock" | "naive";
-  lead_time_days?: number;
-  review_period_days?: number;
+  lead_time?: number;
+  review_period?: number;
   service_level?: number;
   demand_multiplier?: number;
   price_multiplier?: number;
   elasticity?: number;
   shock_start?: string | null;
   shock_end?: string | null;
-  holding_rate?: number;
-  order_cost?: number;
-  stockout_penalty?: number;
 }
 
-export interface ScenarioResult {
-  params: ScenarioParams;
-  metrics: PolicyMetrics;
-  vs_baseline: Partial<PolicyMetrics>;
+export interface CompareParams {
+  lead_time?: number;
+  review_period?: number;
+  service_level?: number;
 }
 
 export interface SavedScenario {
   id: string;
   name: string;
-  created_at: string;
   params: ScenarioParams;
-  metrics: PolicyMetrics;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
-export interface TopItem {
-  item_id: string;
-  name: string;
-  category: string;
-  total_revenue: number;
+export interface KPISummary {
+  n_series: number;
+  n_stores: number;
+  start_date: string;
+  end_date: string;
   total_units: number;
-  avg_daily_sales: number;
-  store_count: number;
+  total_revenue: number;
+  avg_daily_demand: number;
+}
+
+export interface TopItem {
+  unique_id: string;
+  item_id: string;
+  store_id: string;
+  units: number;
+  revenue: number | null;
 }
 
 export interface StoreMetrics {
   store_id: string;
-  state: string;
-  total_revenue: number;
+  n_series: number;
   total_units: number;
-  fill_rate: number;
-  item_count: number;
-}
-
-export interface KPISummary {
-  forecast_improvement_pct: number;
-  mean_fill_rate: number;
-  items_at_risk: number;
-  reorder_needed: number;
-  total_items: number;
-  stockout_day_rate: number;
-  avg_holding_cost_per_unit: number;
-  cost_reduction_pct: number;
+  total_revenue: number | null;
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 export interface ChatSession {
   id: string;
-  title: string;
+  title: string | null;
   created_at: string;
-  message_count: number;
 }
 
 export interface ChatMessage {
-  id: string;
-  session_id: string;
+  id: number | string;
   role: "user" | "assistant";
   content: string;
-  tool_calls?: ToolCallTrace[];
+  tool_calls?: ToolCallTrace[] | null;
   created_at: string;
 }
 

@@ -1,51 +1,83 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import TopBar from "@/components/nav/TopBar";
-import { api } from "@/lib/api";
-import { fmtPct, fmtNumber, statusLabel } from "@/lib/utils";
+import { apiClient } from "@/lib/api";
+import { fmtNumber, statusLabel } from "@/lib/utils";
 import type { InventoryItem } from "@/lib/types";
 import { ItemDrawer } from "@/components/inventory/ItemDrawer";
 import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 
-type SortKey = "item_id" | "store_id" | "current_stock" | "reorder_point" | "days_until_stockout" | "fill_rate";
+type SortKey =
+  | "item_id"
+  | "store_id"
+  | "current_stock"
+  | "reorder_point"
+  | "safety_stock"
+  | "order_up_to"
+  | "mean_daily_demand"
+  | "days_until_stockout";
 type SortDir = "asc" | "desc";
 
-const STORE_OPTS = ["CA_1", "CA_2", "CA_3", "TX_1", "TX_2", "WI_1", "WI_2", "WI_3"];
+// Display-only category derived from the M5 item id prefix (FOODS_1_001 -> FOODS_1).
+function categoryOf(itemId: string): string {
+  const parts = itemId.split("_");
+  return parts.length >= 2 ? `${parts[0]}_${parts[1]}` : itemId;
+}
 
-export default function InventoryPage() {
+export default function InventoryClient() {
   const searchParams = useSearchParams();
   const initStatus = searchParams.get("status") ?? "";
+  const { data: session } = useSession();
+  const token = session?.backendToken;
 
-  const [items, setItems]         = useState<InventoryItem[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState("");
-  const [status, setStatus]       = useState(initStatus);
-  const [store, setStore]         = useState("");
-  const [sortKey, setSortKey]     = useState<SortKey>("item_id");
-  const [sortDir, setSortDir]     = useState<SortDir>("asc");
-  const [selected, setSelected]   = useState<InventoryItem | null>(null);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [storeOpts, setStoreOpts] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState(initStatus);
+  const [store, setStore] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("item_id");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [selected, setSelected] = useState<InventoryItem | null>(null);
 
   const load = useCallback(async () => {
+    if (!token) return;
     setLoading(true);
-    const data = await api.getInventory({
-      status: status || undefined,
-      store:  store  || undefined,
-      search: search || undefined,
-    });
-    setItems(data);
-    setLoading(false);
-  }, [status, store, search]);
+    setError(false);
+    try {
+      const data = await apiClient(token).getInventory({
+        status: status || undefined,
+        store: store || undefined,
+        search: search || undefined,
+        limit: 5000,
+      });
+      setItems(data);
+      // Capture the full store list when no store filter is applied.
+      if (!store) {
+        setStoreOpts([...new Set(data.map((i) => i.store_id))].sort());
+      }
+    } catch {
+      setError(true);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [status, store, search, token]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const sorted = [...items].sort((a, b) => {
-    const av = a[sortKey] ?? "";
-    const bv = b[sortKey] ?? "";
-    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    return sortDir === "asc" ? cmp : -cmp;
-  });
+  const sorted = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const av = a[sortKey] ?? "";
+      const bv = b[sortKey] ?? "";
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [items, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -53,11 +85,11 @@ export default function InventoryPage() {
   };
 
   const counts = {
-    total:    items.length,
+    total: items.length,
     critical: items.filter((i) => i.status === "critical").length,
-    reorder:  items.filter((i) => i.status === "reorder").length,
-    ok:       items.filter((i) => i.status === "ok").length,
-    overstock:items.filter((i) => i.status === "overstock").length,
+    reorder: items.filter((i) => i.status === "reorder").length,
+    healthy: items.filter((i) => i.status === "healthy").length,
+    overstock: items.filter((i) => i.status === "overstock").length,
   };
 
   return (
@@ -81,7 +113,7 @@ export default function InventoryPage() {
             { key: "",          label: "All",       count: counts.total    },
             { key: "critical",  label: "Critical",  count: counts.critical },
             { key: "reorder",   label: "Reorder",   count: counts.reorder  },
-            { key: "ok",        label: "In Stock",  count: counts.ok       },
+            { key: "healthy",   label: "Healthy",   count: counts.healthy  },
             { key: "overstock", label: "Overstock", count: counts.overstock},
           ].map((tab) => (
             <button
@@ -109,7 +141,7 @@ export default function InventoryPage() {
             <div className="input-icon"><Search size={14} /></div>
             <input
               className="input"
-              placeholder="Search item ID or name…"
+              placeholder="Search item ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               id="inv-search"
@@ -123,12 +155,19 @@ export default function InventoryPage() {
             id="inv-store-filter"
           >
             <option value="">All stores</option>
-            {STORE_OPTS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {storeOpts.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
           <span style={{ marginLeft: "auto", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
             {sorted.length} items · click a row to view detail
           </span>
         </div>
+
+        {error && (
+          <div className="empty" style={{ marginBottom: "var(--sp-5)" }}>
+            <div className="empty-title">Couldn&apos;t load inventory.</div>
+            <p className="empty-desc">The backend could not be reached. Use refresh to retry.</p>
+          </div>
+        )}
 
         {/* Table */}
         <div className="tbl-wrap">
@@ -142,10 +181,10 @@ export default function InventoryPage() {
                 <th>Category</th>
                 <th className="text-right sortable" onClick={() => toggleSort("current_stock")}>Stock</th>
                 <th className="text-right sortable" onClick={() => toggleSort("reorder_point")}>Reorder Pt.</th>
-                <th className="text-right">Order-Up-To</th>
+                <th className="text-right sortable" onClick={() => toggleSort("safety_stock")}>Safety</th>
+                <th className="text-right sortable" onClick={() => toggleSort("order_up_to")}>Order-Up-To</th>
                 <th className="text-right sortable" onClick={() => toggleSort("days_until_stockout")}>Days Left</th>
-                <th className="text-right">Lead Time</th>
-                <th className="text-right sortable" onClick={() => toggleSort("fill_rate")}>Fill Rate</th>
+                <th className="text-right sortable" onClick={() => toggleSort("mean_daily_demand")}>Mean Daily</th>
                 <th className="text-right">Unit Price</th>
                 <th>Status</th>
               </tr>
@@ -161,22 +200,24 @@ export default function InventoryPage() {
                   ))
                 : sorted.map((item) => (
                     <tr
-                      key={`${item.item_id}-${item.store_id}`}
+                      key={item.unique_id}
                       onClick={() => setSelected(item)}
                       style={{ cursor: "pointer" }}
-                      id={`inv-row-${item.item_id}`}
+                      id={`inv-row-${item.unique_id}`}
                     >
                       <td>
                         <div style={{ fontWeight: "var(--fw-medium)", fontSize: "var(--ts-sm)" }}>{item.item_id}</div>
-                        <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>{item.name}</div>
                       </td>
                       <td style={{ color: "var(--tx-secondary)" }}>{item.store_id}</td>
-                      <td><span className="badge badge-neutral">{item.category}</span></td>
+                      <td><span className="badge badge-neutral">{categoryOf(item.item_id)}</span></td>
                       <td className="text-right mono" style={{ fontWeight: "var(--fw-medium)" }}>
                         {fmtNumber(item.current_stock)}
                       </td>
                       <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>
                         {fmtNumber(item.reorder_point)}
+                      </td>
+                      <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>
+                        {fmtNumber(item.safety_stock)}
                       </td>
                       <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>
                         {fmtNumber(item.order_up_to)}
@@ -189,14 +230,15 @@ export default function InventoryPage() {
                                  : item.days_until_stockout <= 7 ? "var(--wn-text)"
                                  : "var(--tx-primary)",
                           }}>
-                            {item.days_until_stockout}d
+                            {Math.round(item.days_until_stockout)}d
                           </span>
                         ) : <span style={{ color: "var(--tx-disabled)" }}>—</span>}
                       </td>
-                      <td className="text-right" style={{ color: "var(--tx-secondary)" }}>{item.lead_time_days}d</td>
-                      <td className="text-right mono">{fmtPct(item.fill_rate)}</td>
                       <td className="text-right mono" style={{ color: "var(--tx-secondary)" }}>
-                        ${item.unit_price.toFixed(2)}
+                        {item.mean_daily_demand.toFixed(1)}
+                      </td>
+                      <td className="text-right mono" style={{ color: "var(--tx-secondary)" }}>
+                        {item.unit_price != null ? `$${item.unit_price.toFixed(2)}` : "—"}
                       </td>
                       <td>
                         <span className={`badge badge-${
@@ -212,7 +254,7 @@ export default function InventoryPage() {
                   ))}
             </tbody>
           </table>
-          {!loading && sorted.length === 0 && (
+          {!loading && !error && sorted.length === 0 && (
             <div className="empty">
               <div className="empty-title">No items found</div>
               <p className="empty-desc">Adjust the filters above to see inventory items.</p>

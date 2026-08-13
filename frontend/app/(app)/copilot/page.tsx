@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import TopBar from "@/components/nav/TopBar";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import type { ChatSession, ChatMessage, ToolCallTrace } from "@/lib/types";
 import { Send, Plus, Cpu, User, Zap } from "lucide-react";
 
@@ -86,6 +86,7 @@ function StreamingMsg({ content, toolSteps }: { content: string; toolSteps: Tool
 
 function CopilotInner() {
   const { data: session } = useSession();
+  const token = session?.backendToken;
   const searchParams = useSearchParams();
   const initQ = searchParams.get("q") ?? "";
 
@@ -101,7 +102,11 @@ function CopilotInner() {
   const taRef   = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    api.getChatSessions().then(setSessions);
+    if (!token) return;
+    apiClient(token).getChatSessions().then(setSessions).catch(() => setSessions([]));
+  }, [token]);
+
+  useEffect(() => {
     if (initQ) setTimeout(() => sendMessage(initQ), 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -121,7 +126,6 @@ function CopilotInner() {
 
     const userMsg: ChatMessage = {
       id: `tmp-${Date.now()}`,
-      session_id: activeId ?? "new",
       role: "user",
       content: msg,
       created_at: new Date().toISOString(),
@@ -133,12 +137,11 @@ function CopilotInner() {
     setToolSteps([]);
     if (taRef.current) taRef.current.style.height = "auto";
 
-    const token = (session as { backendToken?: string })?.backendToken ?? "dev";
     let fullContent = "";
     const collectedTools: ToolCallTrace[] = [];
 
     try {
-      for await (const event of api.streamChatFetch(activeId, msg, token)) {
+      for await (const event of apiClient(token).streamChatFetch(activeId, msg)) {
         if (event.type === "tool") {
           const tc = JSON.parse(event.data) as ToolCallTrace;
           collectedTools.push(tc);
@@ -155,7 +158,6 @@ function CopilotInner() {
 
     const assistantMsg: ChatMessage = {
       id: `tmp-a-${Date.now()}`,
-      session_id: activeId ?? "new",
       role: "assistant",
       content: fullContent,
       tool_calls: collectedTools,
@@ -165,7 +167,7 @@ function CopilotInner() {
     setStreaming(false);
     setStreamContent("");
     setToolSteps([]);
-  }, [activeId, session, streaming]);
+  }, [activeId, token, streaming]);
 
   const newChat = () => {
     setActiveId(null);
@@ -198,13 +200,13 @@ function CopilotInner() {
                 className={`chat-hist-item ${activeId === s.id ? "active" : ""}`}
                 onClick={() => {
                   setActiveId(s.id);
-                  api.getMessages(s.id).then(setMessages);
+                  if (token) apiClient(token).getMessages(s.id).then(setMessages).catch(() => setMessages([]));
                 }}
                 id={`chat-session-${s.id}`}
               >
-                <div className="chat-hist-item-title">{s.title}</div>
+                <div className="chat-hist-item-title">{s.title ?? "Untitled conversation"}</div>
                 <div className="chat-hist-item-meta">
-                  {s.message_count} messages · {new Date(s.created_at).toLocaleDateString()}
+                  {new Date(s.created_at).toLocaleDateString()}
                 </div>
               </div>
             ))}

@@ -2,13 +2,19 @@
 
 import { useEffect } from "react";
 import type { InventoryItem } from "@/lib/types";
-import { fmtPct, fmtNumber, fmtCurrency, statusLabel } from "@/lib/utils";
-import { X, Package, TrendingUp, Clock, DollarSign, AlertTriangle, MessageSquare } from "lucide-react";
+import { fmtNumber, fmtCurrency, statusLabel } from "@/lib/utils";
+import { X, Package, TrendingUp, Clock, AlertTriangle, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 interface Props {
   item: InventoryItem | null;
   onClose: () => void;
+}
+
+// Display-only category derived from the M5 item id prefix (FOODS_1_001 -> FOODS_1).
+function categoryOf(itemId: string): string {
+  const parts = itemId.split("_");
+  return parts.length >= 2 ? `${parts[0]}_${parts[1]}` : itemId;
 }
 
 function MetricRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
@@ -48,7 +54,7 @@ export function ItemDrawer({ item, onClose }: Props) {
   const statusConfig = {
     critical:  { cls: "badge-danger",  dot: "dot-danger",  icon: AlertTriangle },
     reorder:   { cls: "badge-warning", dot: "dot-warning", icon: AlertTriangle },
-    ok:        { cls: "badge-ok",      dot: "dot-ok",      icon: Package       },
+    healthy:   { cls: "badge-ok",      dot: "dot-ok",      icon: Package       },
     overstock: { cls: "badge-info",    dot: undefined,     icon: Package       },
   }[item.status] ?? { cls: "badge-neutral", dot: undefined, icon: Package };
 
@@ -102,7 +108,7 @@ export function ItemDrawer({ item, onClose }: Props) {
               {item.item_id}
             </div>
             <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
-              {item.name} · {item.store_id} · {item.category}
+              {item.store_id} · {categoryOf(item.item_id)}
             </div>
           </div>
           <button
@@ -164,18 +170,21 @@ export function ItemDrawer({ item, onClose }: Props) {
               Inventory Position
             </div>
             <MetricRow label="Current Stock"  value={<span className="mono">{fmtNumber(item.current_stock)}</span>} />
+            <MetricRow label="Safety Stock"   value={<span className="mono">{fmtNumber(item.safety_stock)}</span>} sub="Buffer held against demand variability" />
             <MetricRow label="Reorder Point"  value={<span className="mono">{fmtNumber(item.reorder_point)}</span>} sub="Order when stock falls to this level" />
             <MetricRow label="Order-Up-To"    value={<span className="mono">{fmtNumber(item.order_up_to)}</span>}  sub="Target stock level after replenishment" />
-            <MetricRow label="Fill Rate"       value={<span style={{ color: "var(--ok-text)" }}>{fmtPct(item.fill_rate)}</span>} />
+            <MetricRow label="Recommended Order Qty" value={<span className="mono">{fmtNumber(item.recommended_order_qty)}</span>} sub="Units to order now" />
           </div>
 
           <div style={{ marginBottom: "var(--sp-5)" }}>
             <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
-              Policy Parameters
+              Demand &amp; Price
             </div>
-            <MetricRow label="Lead Time"       value={`${item.lead_time_days} days`} sub="Days from order to arrival" />
-            <MetricRow label="Review Period"   value={`${item.review_period_days} days`} sub="How often stock is checked and ordered" />
-            <MetricRow label="Unit Price"      value={fmtCurrency(item.unit_price)} />
+            <MetricRow label="Mean Daily Demand" value={<span className="mono">{item.mean_daily_demand.toFixed(2)}</span>} sub="Average units sold per day" />
+            <MetricRow label="Unit Price"        value={item.unit_price != null ? fmtCurrency(item.unit_price) : "—"} />
+            {item.days_until_stockout != null && (
+              <MetricRow label="Days Until Stockout" value={<span className="mono">{Math.round(item.days_until_stockout)}d</span>} sub="At current mean demand" />
+            )}
           </div>
 
           <div>
@@ -184,8 +193,8 @@ export function ItemDrawer({ item, onClose }: Props) {
             </div>
             <MetricRow label="Item ID"   value={<span className="mono">{item.item_id}</span>} />
             <MetricRow label="Store"     value={<span className="mono">{item.store_id}</span>} />
-            <MetricRow label="Category"  value={<span className="badge badge-neutral">{item.category}</span>} />
-            <MetricRow label="Updated"   value={<span style={{ color: "var(--tx-tertiary)", fontSize: "var(--ts-xs)" }}>{new Date(item.last_updated).toLocaleString()}</span>} />
+            <MetricRow label="Category"  value={<span className="badge badge-neutral">{categoryOf(item.item_id)}</span>} />
+            <MetricRow label="Series ID" value={<span className="mono" style={{ fontSize: "var(--ts-xs)" }}>{item.unique_id}</span>} />
           </div>
         </div>
 
