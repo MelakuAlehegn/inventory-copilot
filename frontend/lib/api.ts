@@ -142,7 +142,8 @@ export function apiClient(token?: string | null) {
 
     async *streamChatFetch(
       sessionId: string | null,
-      userMessage: string
+      userMessage: string,
+      context?: Record<string, string | number> | null
     ): AsyncGenerator<{ type: string; data: string }> {
       const res = await fetch(`${BASE}/chat/stream`, {
         method: "POST",
@@ -151,7 +152,11 @@ export function apiClient(token?: string | null) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           Accept: "text/event-stream",
         },
-        body: JSON.stringify({ session_id: sessionId, message: userMessage }),
+        body: JSON.stringify({
+          session_id: sessionId,
+          message: userMessage,
+          ...(context ? { context } : {}),
+        }),
       });
 
       if (!res.ok || !res.body) {
