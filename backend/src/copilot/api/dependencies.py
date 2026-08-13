@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import threading
 
+import polars as pl
+
 from copilot.agent.context import CopilotContext, load_context
 from copilot.agent.graph import build_agent
+from copilot.core.simulation.inventory import inventory_table
 
 _context: CopilotContext | None = None
 _agent = None
+_inventory: pl.DataFrame | None = None
 _lock = threading.Lock()
 
 
@@ -37,3 +41,16 @@ def get_agent():
             if _agent is None:
                 _agent = build_agent(ctx)
     return _agent
+
+
+def get_inventory_table() -> pl.DataFrame:
+    """The per-series inventory table, computed once (default policy) and reused."""
+    global _inventory
+    if _inventory is None:
+        ctx = get_context()
+        with _lock:
+            if _inventory is None:
+                _inventory = inventory_table(
+                    ctx.forecast, ctx.history, ctx.actuals, ctx.prices, ctx.cutoff
+                )
+    return _inventory

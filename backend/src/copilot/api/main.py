@@ -20,6 +20,7 @@ from copilot.api.routers import (
     decisions,
     forecast,
     health,
+    inventory,
     scenarios,
     users,
 )
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(decisions.router)
     app.include_router(analytics.router)
     app.include_router(forecast.router)
+    app.include_router(inventory.router)
     app.include_router(scenarios.router)
     return app
 
