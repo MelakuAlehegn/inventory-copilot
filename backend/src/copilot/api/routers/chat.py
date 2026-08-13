@@ -49,25 +49,54 @@ def to_lc_history(rows: Iterable) -> list[AnyMessage]:
     return history
 
 
+def _summarize_tool_result(message: AnyMessage) -> str:
+    """A short, single-line preview of a tool's output for the trajectory UI."""
+    text = " ".join(str(message.content).split())
+    return text[:200] + ("…" if len(text) > 200 else "")
+
+
 async def _event_stream(agent, history: list[AnyMessage], session_id: uuid.UUID) -> AsyncIterator[dict]:
-    """Run the agent, streaming tool-step events, then the final answer, then persist it."""
+    """Run the agent, streaming a staged trajectory (status + tool calls + tool results),
+    then the final answer, then persist it."""
     final_text = ""
     trace: list[dict] = []
+
+    yield {"event": "status", "data": json.dumps({"label": "Thinking"})}
 
     async for chunk in agent.astream({"messages": history}, stream_mode="updates"):
         for node, update in chunk.items():
             if not isinstance(update, dict):
                 continue
-            for m in update.get("messages", []):
-                calls = getattr(m, "tool_calls", None)
-                if node == "agent" and calls:
-                    for c in calls:
-                        step = {"name": c["name"], "args": c["args"]}
-                        trace.append(step)
-                        yield {"event": "tool", "data": json.dumps(step)}
-                elif isinstance(m, AIMessage):
-                    final_text = message_text(m)
+            messages = update.get("messages", [])
 
+            if node == "agent":
+                for m in messages:
+                    calls = getattr(m, "tool_calls", None)
+                    if calls:
+                        yield {"event": "status", "data": json.dumps({"label": "Running tools"})}
+                        for c in calls:
+                            step = {"name": c["name"], "args": c["args"]}
+                            trace.append(step)
+                            yield {"event": "tool", "data": json.dumps(step)}
+                    elif isinstance(m, AIMessage):
+                        final_text = message_text(m)
+                        yield {"event": "status", "data": json.dumps({"label": "Verifying the figures"})}
+
+            elif node == "tools":
+                for m in messages:
+                    yield {"event": "tool_result", "data": json.dumps(
+                        {"name": getattr(m, "name", ""), "summary": _summarize_tool_result(m)}
+                    )}
+
+            elif node == "grounding":
+                route = update.get("route")
+                if route == "retry":
+                    yield {"event": "status", "data": json.dumps({"label": "Double-checking the numbers"})}
+                for m in messages:
+                    if isinstance(m, AIMessage):  # the honest "couldn't verify" fallback
+                        final_text = message_text(m)
+
+    yield {"event": "status", "data": json.dumps({"label": "Finalizing"})}
     yield {"event": "message", "data": json.dumps({"session_id": str(session_id), "content": final_text})}
 
     # Persist the assistant turn in its own session (the request session is torn down once

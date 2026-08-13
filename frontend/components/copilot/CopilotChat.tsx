@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { apiClient } from "@/lib/api";
 import type { ChatSession, ChatMessage, ToolCallTrace } from "@/lib/types";
-import { Send, Cpu, User, Zap } from "lucide-react";
+import { Send, Cpu, User, Zap, Check } from "lucide-react";
 
 const SUGGESTIONS = [
   "Compare base-stock vs naive at 95% service level",
@@ -16,13 +16,57 @@ const SUGGESTIONS = [
 
 const TOOLS = ["forecast_demand", "compare_policies", "run_simulation", "run_what_if", "get_pareto_curve"];
 
-function ToolCallBadge({ trace }: { trace: ToolCallTrace }) {
+/** One step in the agent's live trajectory: a tool call, its args, and (once run) a result. */
+interface AgentStep {
+  name: string;
+  args?: Record<string, unknown>;
+  summary?: string;
+  done: boolean;
+}
+
+function argsPreview(args?: Record<string, unknown>): string {
+  if (!args) return "";
+  const s = Object.entries(args)
+    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+    .join(", ");
+  return s.length > 80 ? s.slice(0, 80) + "…" : s;
+}
+
+function StepRow({ step }: { step: AgentStep }) {
   return (
-    <div className="tool-step running" style={{ display: "inline-flex" }}>
-      <Zap size={12} />
-      <span style={{ fontFamily: "var(--ff-mono)" }}>{trace.tool_name}</span>
-      {trace.result_summary && (
-        <span style={{ color: "var(--cu-500)", marginLeft: 4 }}>→ {trace.result_summary}</span>
+    <div style={{ display: "flex", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
+      <div style={{ marginTop: 2, flexShrink: 0, width: 14, display: "flex", justifyContent: "center" }}>
+        {step.done
+          ? <Check size={13} color="var(--ok-500)" />
+          : <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--ts-xs)" }}>
+          <Zap size={11} color="var(--cu-500)" />
+          <span className="mono" style={{ fontWeight: "var(--fw-semibold)" }}>{step.name}</span>
+          {step.args && <span className="truncate" style={{ color: "var(--tx-tertiary)" }}>{argsPreview(step.args)}</span>}
+        </div>
+        {step.summary && (
+          <div className="mono" style={{ fontSize: "var(--ts-2xs)", color: "var(--tx-tertiary)", marginTop: 2, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: "var(--lh-snug)" }}>
+            {step.summary}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The agent's step-by-step trajectory. `status` (when set) is the current live phase. */
+function Trajectory({ steps, status }: { steps: AgentStep[]; status?: string }) {
+  if (!steps.length && !status) return null;
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", background: "var(--surface-raised)", padding: "var(--sp-1) var(--sp-3)", marginBottom: "var(--sp-2)" }}>
+      {steps.map((s, i) => <StepRow key={i} step={s} />)}
+      {status && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "var(--sp-2) 0", fontSize: "var(--ts-xs)", color: "var(--tx-secondary)" }}>
+          <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
+          {status}…
+        </div>
       )}
     </div>
   );
@@ -30,17 +74,17 @@ function ToolCallBadge({ trace }: { trace: ToolCallTrace }) {
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
+  // Persisted assistant turns carry their trajectory as tool_calls (already completed).
+  const steps: AgentStep[] = Array.isArray(msg.tool_calls)
+    ? msg.tool_calls.map((tc) => ({ name: tc.tool_name, summary: tc.result_summary, done: true }))
+    : [];
   return (
     <div className={`msg ${isUser ? "msg-user" : ""}`}>
       <div className={`msg-avatar ${isUser ? "user" : "assistant"}`}>
         {isUser ? <User size={12} /> : <Cpu size={12} />}
       </div>
       <div className="msg-body">
-        {msg.tool_calls && msg.tool_calls.length > 0 && (
-          <div style={{ marginBottom: "var(--sp-2)", display: "flex", flexWrap: "wrap", gap: "var(--sp-2)" }}>
-            {msg.tool_calls.map((tc, i) => <ToolCallBadge key={i} trace={tc} />)}
-          </div>
-        )}
+        {steps.length > 0 && <Trajectory steps={steps} />}
         <div className={`msg-bubble ${isUser ? "user" : "assistant"}`}>
           {msg.content.split("\n").map((line, i) => (
             <p key={i} style={{ margin: i > 0 ? "var(--sp-2) 0 0" : 0 }}>
@@ -56,16 +100,13 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   );
 }
 
-function StreamingMsg({ content, toolSteps }: { content: string; toolSteps: ToolCallTrace[] }) {
+function StreamingMsg({ content, steps, status }: { content: string; steps: AgentStep[]; status: string }) {
   return (
     <div className="msg">
       <div className="msg-avatar assistant"><Cpu size={12} /></div>
       <div className="msg-body">
-        {toolSteps.length > 0 && (
-          <div style={{ marginBottom: "var(--sp-2)", display: "flex", flexWrap: "wrap", gap: "var(--sp-2)" }}>
-            {toolSteps.map((tc, i) => <ToolCallBadge key={i} trace={tc} />)}
-          </div>
-        )}
+        {/* Trajectory shows the live phase until the answer starts arriving. */}
+        <Trajectory steps={steps} status={content ? undefined : status} />
         {content ? (
           <div className="msg-bubble assistant">
             {content.split("\n").map((line, i) => (
@@ -73,12 +114,12 @@ function StreamingMsg({ content, toolSteps }: { content: string; toolSteps: Tool
             ))}
             <span style={{ display: "inline-block", width: 6, height: 14, background: "var(--cu-500)", marginLeft: 2, animation: "pulse 1s infinite", verticalAlign: "text-bottom", borderRadius: 1 }} />
           </div>
-        ) : (
+        ) : (!steps.length && !status) ? (
           <div className="tool-step running">
             <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
             Thinking…
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -118,7 +159,8 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const [input, setInput]         = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
-  const [toolSteps, setToolSteps] = useState<ToolCallTrace[]>([]);
+  const [steps, setSteps] = useState<AgentStep[]>([]);
+  const [status, setStatus] = useState("");
 
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef   = useRef<HTMLTextAreaElement>(null);
@@ -153,20 +195,37 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setInput("");
     setStreaming(true);
     setStreamContent("");
-    setToolSteps([]);
+    setSteps([]);
+    setStatus("");
     if (taRef.current) taRef.current.style.height = "auto";
 
     let fullContent = "";
-    const collectedTools: ToolCallTrace[] = [];
+    const trajectory: AgentStep[] = [];
 
     try {
       for await (const event of apiClient(token).streamChatFetch(activeId, msg, context)) {
-        if (event.type === "tool") {
-          const tc = JSON.parse(event.data) as ToolCallTrace;
-          collectedTools.push(tc);
-          setToolSteps([...collectedTools]);
+        if (event.type === "status") {
+          // High-level phase: "Thinking", "Running tools", "Verifying the figures", …
+          setStatus((JSON.parse(event.data) as { label?: string }).label ?? "");
+        } else if (event.type === "tool") {
+          // A tool call has started: { name, args }.
+          const raw = JSON.parse(event.data) as { name?: string; args?: Record<string, unknown> };
+          trajectory.push({ name: raw.name ?? "tool", args: raw.args, done: false });
+          setSteps([...trajectory]);
+        } else if (event.type === "tool_result") {
+          // A tool finished: { name, summary } — mark the matching pending step done.
+          const raw = JSON.parse(event.data) as { name?: string; summary?: string };
+          const pending = trajectory.find((s) => !s.done && s.name === raw.name);
+          if (pending) { pending.done = true; pending.summary = raw.summary; }
+          setSteps([...trajectory]);
         } else if (event.type === "message") {
-          fullContent = event.data;
+          // The final answer arrives as { session_id, content }.
+          try {
+            fullContent = (JSON.parse(event.data) as { content?: string }).content ?? "";
+          } catch {
+            fullContent = event.data;
+          }
+          setStatus("");
           setStreamContent(fullContent);
         }
       }
@@ -175,17 +234,21 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       setStreamContent(fullContent);
     }
 
+    // Any step still spinning when the stream ends is considered complete.
+    trajectory.forEach((s) => { s.done = true; });
+
     const assistantMsg: ChatMessage = {
       id: `tmp-a-${Date.now()}`,
       role: "assistant",
       content: fullContent,
-      tool_calls: collectedTools,
+      tool_calls: trajectory.map((s) => ({ tool_name: s.name, result_summary: s.summary } as ToolCallTrace)),
       created_at: new Date().toISOString(),
     };
     setMessages((m) => [...m, assistantMsg]);
     setStreaming(false);
     setStreamContent("");
-    setToolSteps([]);
+    setSteps([]);
+    setStatus("");
   }, [activeId, token, streaming, context]);
 
   // Fire the initial query once (e.g. arriving from an "Ask about this" button).
@@ -301,7 +364,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       <div className="chat-msgs" ref={msgsRef}>
         {messages.length === 0 && !streaming && welcome}
         {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
-        {streaming && <StreamingMsg content={streamContent} toolSteps={toolSteps} />}
+        {streaming && <StreamingMsg content={streamContent} steps={steps} status={status} />}
       </div>
 
       <div className="chat-input-area">

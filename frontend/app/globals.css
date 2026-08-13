@@ -128,6 +128,40 @@
 }
 
 /* ══════════════════════════════════════════════════════
+   DARK THEME
+   Only the neutrals, semantic tints, and shadows flip. The copper brand ramp is left
+   intact: it reads on any background, buttons keep white text on it, and the light copper
+   band lines look right on the dark canvas.
+══════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --canvas:         #14120E;
+  --surface:        #1D1B15;
+  --surface-raised: #24211A;
+  --surface-sunken: #100E0B;
+
+  --border:        #322E27;
+  --border-strong: #4A453B;
+  --divider:       #2A2721;
+
+  --tx-primary:   #F3EFE7;
+  --tx-secondary: #BDB5A7;
+  --tx-tertiary:  #8A8274;
+  --tx-disabled:  #5C554A;
+  --tx-inverse:   #FFFFFF;
+
+  /* Semantic: dark tint background + light readable text; 500s brightened for dots/lines */
+  --ok-500: #46A06B; --ok-bg: #16271E; --ok-text: #7FCBA0;
+  --wn-500: #D6A83A; --wn-bg: #2A2410; --wn-text: #E6C05A;
+  --dn-500: #E0574D; --dn-bg: #2A1514; --dn-text: #F09A92;
+  --in-500: #5A7FD0; --in-bg: #141C2E; --in-text: #9DB2E6;
+
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.40);
+  --sh-sm: 0 2px 6px rgba(0,0,0,0.45);
+  --sh-md: 0 4px 14px rgba(0,0,0,0.50);
+  --sh-lg: 0 8px 28px rgba(0,0,0,0.55);
+}
+
+/* ══════════════════════════════════════════════════════
    RESET
 ══════════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -147,6 +181,7 @@ body {
   background: var(--canvas);
   line-height: var(--lh-normal);
   min-height: 100dvh;
+  transition: background var(--dur-normal) ease, color var(--dur-normal) ease;
 }
 
 a { color: inherit; text-decoration: none; }

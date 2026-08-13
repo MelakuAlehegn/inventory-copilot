@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, RefreshCw, Sparkles } from "lucide-react";
 import { useCopilot } from "@/components/copilot/CopilotProvider";
+import ThemeToggle from "./ThemeToggle";
 
 interface Props {
   title: string;
@@ -45,6 +46,7 @@ export default function TopBar({ title, subtitle, actions, onRefresh }: Props) {
             <RefreshCw size={14} />
           </button>
         )}
+        <ThemeToggle />
         <button className="btn btn-ghost btn-icon btn-sm" title="Notifications" id="topbar-notifications">
           <Bell size={14} />
         </button>

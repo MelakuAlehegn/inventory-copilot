@@ -171,20 +171,16 @@ export function apiClient(token?: string | null) {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() ?? "";
-        for (const chunk of chunks) {
-          const eventLine = chunk
-            .split("\n")
-            .find((l) => l.startsWith("event:"))
-            ?.replace("event:", "")
-            .trim();
-          const dataLine = chunk
-            .split("\n")
-            .find((l) => l.startsWith("data:"))
-            ?.replace("data:", "")
-            .trim();
-          if (eventLine && dataLine) yield { type: eventLine, data: dataLine };
+        // Frames are separated by a blank line; the server uses CRLF (sse_starlette),
+        // so accept \r\n\r\n and \n\n. Lines split on either CRLF or LF.
+        const frames = buffer.split(/\r\n\r\n|\n\n/);
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+          const lines = frame.split(/\r\n|\n/);
+          const eventLine = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+          const dataLine = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+          // Per the SSE spec a frame with no event field defaults to "message".
+          if (dataLine !== undefined) yield { type: eventLine ?? "message", data: dataLine };
         }
       }
     },
