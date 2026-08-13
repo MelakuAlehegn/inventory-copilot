@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ══════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -543,7 +543,9 @@ input, textarea, select { font-family: inherit; }
 }
 
 .metric-value {
-  font-family: var(--ff-display);
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
   font-size: var(--ts-3xl); font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
   color: var(--tx-primary);
@@ -916,7 +918,9 @@ input, textarea, select { font-family: inherit; }
   margin-bottom: var(--sp-2);
 }
 .param-value {
-  font-family: var(--ff-display);
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
   font-size: var(--ts-sm); font-weight: var(--fw-bold);
   color: var(--cu-500);
 }
@@ -937,10 +941,11 @@ input, textarea, select { font-family: inherit; }
   font-variant-numeric: tabular-nums;
 }
 .result-policy {
-  font-family: var(--ff-display);
+  font-family: var(--ff-mono);
   font-size: var(--ts-md); font-weight: var(--fw-semibold);
   color: var(--tx-primary);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
   min-width: 80px; text-align: right;
 }
 .result-change { font-size: var(--ts-xs); font-weight: var(--fw-semibold); min-width: 52px; text-align: right; }
@@ -979,7 +984,11 @@ input, textarea, select { font-family: inherit; }
 
 .text-right  { text-align: right; }
 .text-center { text-align: center; }
-.mono { font-family: var(--ff-mono); }
+.mono {
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .flex { display: flex; }

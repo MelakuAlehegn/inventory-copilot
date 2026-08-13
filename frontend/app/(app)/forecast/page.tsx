@@ -192,7 +192,7 @@ export default async function ForecastPage() {
               <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>Mean pinball loss across quantiles · lower is better</div>
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: "var(--sp-4)", padding: "var(--sp-4) 0" }}>
-              <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-2xl)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", letterSpacing: "var(--ls-tight)" }}>
+              <div className="mono" style={{ fontSize: "var(--ts-2xl)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", letterSpacing: "var(--ls-tight)" }}>
                 {summary.pinball_mean.toFixed(4)}
               </div>
               <div style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)", maxWidth: 520, lineHeight: "var(--lh-relaxed)" }}>

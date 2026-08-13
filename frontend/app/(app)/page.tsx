@@ -236,7 +236,7 @@ export default async function DashboardPage() {
                     }}>
                       <span style={{ flex: 1, fontSize: "var(--ts-sm)", color: "var(--tx-secondary)" }}>{row.label}</span>
                       <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }} className="mono">{row.naive}</span>
-                      <span style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-sm)", fontWeight: "var(--fw-bold)", minWidth: 64, textAlign: "right" }} className="mono">{row.base}</span>
+                      <span style={{ fontSize: "var(--ts-sm)", fontWeight: "var(--fw-bold)", minWidth: 64, textAlign: "right" }} className="mono">{row.base}</span>
                     </div>
                   ))}
                 </div>
@@ -266,7 +266,7 @@ export default async function DashboardPage() {
                           <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
                             {s.label}
                           </div>
-                          <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-xl)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", letterSpacing: "var(--ls-tight)" }}>
+                          <div className="mono" style={{ fontSize: "var(--ts-xl)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", letterSpacing: "var(--ls-tight)" }}>
                             {s.value}
                           </div>
                           <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>{s.sub}</div>

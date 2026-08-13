@@ -81,7 +81,7 @@ function CompareRow({
       {/* Left scenario */}
       <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
         {w === "left" && <Check size={12} color="var(--ok-500)" />}
-        <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-semibold)", color: w === "left" ? "var(--ok-text)" : "var(--tx-primary)" }}>
+        <span className="mono" style={{ fontWeight: "var(--fw-semibold)", color: w === "left" ? "var(--ok-text)" : "var(--tx-primary)" }}>
           {left != null ? fmt(left) : <span style={{ color: "var(--tx-disabled)" }}>—</span>}
         </span>
         {deltaLeft != null && (
@@ -93,7 +93,7 @@ function CompareRow({
       {/* Right scenario */}
       <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
         {w === "right" && <Check size={12} color="var(--ok-500)" />}
-        <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-semibold)", color: w === "right" ? "var(--ok-text)" : "var(--tx-primary)" }}>
+        <span className="mono" style={{ fontWeight: "var(--fw-semibold)", color: w === "right" ? "var(--ok-text)" : "var(--tx-primary)" }}>
           {right != null ? fmt(right) : <span style={{ color: "var(--tx-disabled)" }}>—</span>}
         </span>
         {deltaRight != null && (
@@ -428,11 +428,11 @@ export default function ScenariosPage() {
                         <div style={{ marginTop: "var(--sp-4)", padding: "var(--sp-4)", background: "var(--surface-raised)", borderRadius: "var(--r-md)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--sp-2)" }}>
                             <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Fill Rate</span>
-                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)", color: "var(--ok-text)" }}>{fmtPct(result.fill_rate)}</span>
+                            <span className="mono" style={{ fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)", color: "var(--ok-text)" }}>{fmtPct(result.fill_rate)}</span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
                             <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Total Cost</span>
-                            <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)" }}>{fmtCurrency(result.total_cost)}</span>
+                            <span className="mono" style={{ fontWeight: "var(--fw-bold)", fontSize: "var(--ts-lg)" }}>{fmtCurrency(result.total_cost)}</span>
                           </div>
                         </div>
                       )}
