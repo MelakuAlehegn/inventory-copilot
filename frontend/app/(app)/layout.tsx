@@ -2,6 +2,9 @@ import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
 import { apiClient } from "@/lib/api";
 import Sidebar from "@/components/nav/Sidebar";
+import { CopilotProvider } from "@/components/copilot/CopilotProvider";
+import CopilotDock from "@/components/copilot/CopilotDock";
+import MainRegion from "@/components/copilot/MainRegion";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Real session (the middleware guarantees the user is authenticated to reach here).
@@ -18,10 +21,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <SessionProvider session={session}>
-      <div className="app-shell">
-        <Sidebar alertCount={alertCount} />
-        <div className="app-main">{children}</div>
-      </div>
+      <CopilotProvider>
+        <div className="app-shell">
+          <Sidebar alertCount={alertCount} />
+          <CopilotDock />
+          <MainRegion>{children}</MainRegion>
+        </div>
+      </CopilotProvider>
     </SessionProvider>
   );
 }

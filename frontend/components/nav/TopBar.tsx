@@ -1,6 +1,8 @@
 "use client";
 import { ReactNode } from "react";
-import { Bell, RefreshCw } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Bell, RefreshCw, Sparkles } from "lucide-react";
+import { useCopilot } from "@/components/copilot/CopilotProvider";
 
 interface Props {
   title: string;
@@ -10,6 +12,10 @@ interface Props {
 }
 
 export default function TopBar({ title, subtitle, actions, onRefresh }: Props) {
+  const pathname = usePathname();
+  const { open, toggle } = useCopilot();
+  const showAsk = pathname !== "/copilot";
+
   return (
     <header className="topbar">
       <div className="topbar-title">
@@ -19,6 +25,16 @@ export default function TopBar({ title, subtitle, actions, onRefresh }: Props) {
 
       <div className="topbar-actions">
         {actions}
+        {showAsk && (
+          <button
+            className={`btn btn-sm ${open ? "btn-primary" : "btn-secondary"}`}
+            onClick={toggle}
+            title="Ask the copilot about this page"
+            id="topbar-ask"
+          >
+            <Sparkles size={14} /> Ask
+          </button>
+        )}
         {onRefresh && (
           <button
             className="btn btn-ghost btn-icon btn-sm"

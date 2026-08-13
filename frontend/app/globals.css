@@ -327,7 +327,46 @@ input, textarea, select { font-family: inherit; }
   flex: 1;
   display: flex; flex-direction: column;
   min-height: 100dvh;
+  transition: margin-left 0.2s ease;
 }
+/* Shift right to make room for the docked copilot. */
+.app-main.copilot-open { margin-left: calc(var(--sidebar-w) + var(--copilot-w)); }
+
+/* ── Docked copilot panel ─────────────────────────────── */
+:root { --copilot-w: 400px; }
+
+.copilot-dock {
+  position: fixed;
+  top: 0; bottom: 0;
+  left: var(--sidebar-w);
+  width: var(--copilot-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  z-index: 150;
+  transform: translateX(calc(-1 * (var(--sidebar-w) + var(--copilot-w))));
+  transition: transform 0.2s ease;
+  visibility: hidden;
+}
+.copilot-dock.open { transform: translateX(0); visibility: visible; }
+
+.copilot-dock-hdr {
+  height: var(--topbar-h); flex-shrink: 0;
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.copilot-dock-ctx {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--ts-xs); color: var(--tx-tertiary);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--divider);
+}
+
+/* In the dock the chat fills the space below the header (no history rail). */
+.copilot-dock .chat-main { flex: 1; min-height: 0; }
 
 .topbar {
   height: var(--topbar-h);
