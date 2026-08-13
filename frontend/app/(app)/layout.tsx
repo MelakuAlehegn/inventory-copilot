@@ -1,15 +1,12 @@
 import { SessionProvider } from "next-auth/react";
+import { auth } from "@/auth";
 import Sidebar from "@/components/nav/Sidebar";
 
-const DEV_SESSION = {
-  user: { name: "Dev User", email: "dev@localhost", image: null },
-  expires: "2099-01-01",
-  backendToken: "dev-token",
-};
-
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // Real session (the middleware guarantees the user is authenticated to reach here).
+  const session = await auth();
   return (
-    <SessionProvider session={DEV_SESSION}>
+    <SessionProvider session={session}>
       <div className="app-shell">
         <Sidebar alertCount={12} />
         <div className="app-main">{children}</div>
