@@ -5,42 +5,61 @@ export const metadata = { title: "Settings" };
 export default function SettingsPage() {
   return (
     <>
-      <TopBar title="Settings" subtitle="Account, API, and preferences" />
+      <TopBar title="Settings" subtitle="Account, API, and system preferences" />
       <div className="page-body">
-        <div style={{ maxWidth: 600 }}>
+        <div style={{ maxWidth: 640 }}>
+          {/* Account */}
           <div className="section">
-            <div className="section-hdr"><div className="section-title">Account</div></div>
-            <div style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)", padding: "var(--sp-4) 0" }}>
-              Manage your OAuth session. Sign out using the button at the bottom of the sidebar.
+            <div className="section-hdr"><div className="section-title">Account &amp; Session</div></div>
+            <div className="panel" style={{ padding: "var(--sp-5)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: "var(--ts-sm)", fontWeight: "var(--fw-semibold)", color: "var(--tx-primary)", marginBottom: 2 }}>
+                  Active OAuth Session
+                </div>
+                <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+                  Authenticated session. Sign out using the button at the bottom of the sidebar.
+                </div>
+              </div>
+              <span className="badge badge-ok">
+                <span className="dot dot-ok" /> Active
+              </span>
             </div>
           </div>
 
+          {/* Connection */}
           <div className="section">
             <div className="section-hdr"><div className="section-title">Backend Connection</div></div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-4)" }}>
-              <div>
-                <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
-                  API URL
-                </div>
-                <div className="input" style={{ display: "flex", alignItems: "center", background: "var(--surface-raised)", color: "var(--tx-secondary)", cursor: "default", fontFamily: "var(--ff-mono)", fontSize: "var(--ts-xs)" }}>
-                  {process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}
-                </div>
-                <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", marginTop: "var(--sp-1)" }}>
-                  Set via NEXT_PUBLIC_API_URL environment variable.
-                </div>
+            <div className="panel" style={{ padding: "var(--sp-5)" }}>
+              <div style={{ fontSize: "var(--ts-2xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
+                API Endpoint URL
+              </div>
+              <div className="input" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--surface-sunken)", color: "var(--tx-primary)", fontFamily: "var(--ff-mono)", fontSize: "var(--ts-xs)", padding: "var(--sp-3) var(--sp-4)", border: "1px solid var(--border)" }}>
+                <span>{process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}</span>
+                <span className="badge badge-ok" style={{ fontSize: 10 }}>Connected</span>
+              </div>
+              <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", marginTop: "var(--sp-2)" }}>
+                Configured via <code className="mono">NEXT_PUBLIC_API_URL</code> environment variable.
               </div>
             </div>
           </div>
 
+          {/* About */}
           <div className="section">
-            <div className="section-hdr"><div className="section-title">About</div></div>
-            <div style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)", lineHeight: "var(--lh-relaxed)" }}>
-              <strong style={{ color: "var(--tx-primary)" }}>Inventory Copilot</strong> is a production-grade retail AI system
-              built with LightGBM quantile forecasting, base-stock inventory policy,
-              deterministic simulation, and a LangGraph agent grounded on real tool outputs.
-              <br /><br />
-              Backend: FastAPI + LangGraph + Gemini · Frontend: Next.js + Auth.js<br />
-              Data: M5 Walmart FOODS · 14,370 series · 28-day horizon
+            <div className="section-hdr"><div className="section-title">System Information</div></div>
+            <div className="panel" style={{ padding: "var(--sp-5)" }}>
+              <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-md)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", marginBottom: "var(--sp-2)" }}>
+                Inventory Copilot v1.0
+              </div>
+              <div style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)", lineHeight: "var(--lh-relaxed)", marginBottom: "var(--sp-4)" }}>
+                A retail decision-intelligence system combining LightGBM quantile demand forecasting, base-stock safety stock optimization, deterministic inventory simulation, and a LangGraph copilot grounded on real data tool outputs.
+              </div>
+              <div style={{ display: "flex", gap: "var(--sp-2)", flexWrap: "wrap" }}>
+                {["Next.js 15", "React 19", "TypeScript", "FastAPI", "LangGraph", "LightGBM", "DuckDB", "Recharts"].map((tech) => (
+                  <span key={tech} className="badge badge-neutral" style={{ fontSize: "var(--ts-2xs)" }}>
+                    {tech}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>

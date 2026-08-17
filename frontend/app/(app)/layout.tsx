@@ -11,10 +11,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
 
   // Count items needing attention for the sidebar badge; tolerate backend errors.
+  // Uses the lightweight summary (a few numbers) rather than pulling the full table.
   let alertCount = 0;
   try {
-    const inventory = await apiClient(session?.backendToken).getInventory({ limit: 5000 });
-    alertCount = inventory.filter((i) => i.status === "critical" || i.status === "reorder").length;
+    const summary = await apiClient(session?.backendToken).getInventorySummary();
+    alertCount = summary.alert_count;
   } catch {
     alertCount = 0;
   }

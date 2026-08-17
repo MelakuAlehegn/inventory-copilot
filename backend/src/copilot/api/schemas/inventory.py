@@ -18,3 +18,17 @@ class InventoryItem(BaseModel):
     days_until_stockout: float | None
     status: str  # healthy | reorder | critical | overstock
     unit_price: float | None
+
+
+class InventorySummary(BaseModel):
+    """Per-status counts for the whole inventory table — a few numbers, not the rows.
+
+    Lets the sidebar badge and dashboard tiles avoid pulling the full table.
+    """
+
+    total: int
+    critical: int
+    reorder: int
+    healthy: int
+    overstock: int
+    alert_count: int  # critical + reorder (the "needs attention" total)

@@ -32,16 +32,16 @@ function Param({
 }) {
   return (
     <div className="param-group">
-      <label className="param-label" htmlFor={id}>
-        {label}
-        <span className="param-value">{fmt(value)}</span>
+      <label className="param-label" htmlFor={id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--sp-2)" }}>
+        <span style={{ fontWeight: "var(--fw-medium)", fontSize: "var(--ts-sm)" }}>{label}</span>
+        <span className="badge badge-copper mono" style={{ fontSize: "var(--ts-xs)", padding: "2px 8px" }}>{fmt(value)}</span>
       </label>
       <input
         id={id} type="range" className="slider"
         min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
       />
-      <div className="param-hint">{hint}</div>
+      <div className="param-hint" style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", marginTop: "var(--sp-1)" }}>{hint}</div>
     </div>
   );
 }

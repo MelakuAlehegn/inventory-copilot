@@ -6,9 +6,11 @@ import { useSession } from "next-auth/react";
 import TopBar from "@/components/nav/TopBar";
 import { apiClient } from "@/lib/api";
 import { fmtNumber, statusLabel } from "@/lib/utils";
-import type { InventoryItem } from "@/lib/types";
+import type { InventoryItem, InventorySummary } from "@/lib/types";
 import { ItemDrawer } from "@/components/inventory/ItemDrawer";
-import { Search, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZES = [25, 50, 100, 200];
 
 type SortKey =
   | "item_id"
@@ -35,6 +37,7 @@ export default function InventoryClient() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [storeOpts, setStoreOpts] = useState<string[]>([]);
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
@@ -43,30 +46,43 @@ export default function InventoryClient() {
   const [sortKey, setSortKey] = useState<SortKey>("item_id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<InventoryItem | null>(null);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+
+  // Status counts and the store list are global — fetch once, not per page.
+  useEffect(() => {
+    if (!token) return;
+    const api = apiClient(token);
+    api.getInventorySummary().then(setSummary).catch(() => setSummary(null));
+    api.getStores().then((s) => setStoreOpts(s.map((x) => x.store_id).sort())).catch(() => setStoreOpts([]));
+  }, [token]);
+
+  // Reset to the first page whenever the filters or page size change.
+  useEffect(() => { setPage(0); }, [status, store, search, pageSize]);
 
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(false);
     try {
-      const data = await apiClient(token).getInventory({
+      // Fetch one extra row to know whether a next page exists, without a count query.
+      const rows = await apiClient(token).getInventory({
         status: status || undefined,
         store: store || undefined,
         search: search || undefined,
-        limit: 5000,
+        limit: pageSize + 1,
+        offset: page * pageSize,
       });
-      setItems(data);
-      // Capture the full store list when no store filter is applied.
-      if (!store) {
-        setStoreOpts([...new Set(data.map((i) => i.store_id))].sort());
-      }
+      setHasNext(rows.length > pageSize);
+      setItems(rows.slice(0, pageSize));
     } catch {
       setError(true);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [status, store, search, token]);
+  }, [status, store, search, token, page, pageSize]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -84,13 +100,22 @@ export default function InventoryClient() {
     else { setSortKey(key); setSortDir("asc"); }
   };
 
+  // Tab counts come from the global summary (a few numbers), not the loaded page.
   const counts = {
-    total: items.length,
-    critical: items.filter((i) => i.status === "critical").length,
-    reorder: items.filter((i) => i.status === "reorder").length,
-    healthy: items.filter((i) => i.status === "healthy").length,
-    overstock: items.filter((i) => i.status === "overstock").length,
+    total: summary?.total ?? 0,
+    critical: summary?.critical ?? 0,
+    reorder: summary?.reorder ?? 0,
+    healthy: summary?.healthy ?? 0,
+    overstock: summary?.overstock ?? 0,
   };
+
+  // Total for the current view (known only when no store/search filter narrows it).
+  const viewTotal =
+    !store && !search
+      ? (status ? counts[status as keyof typeof counts] : counts.total)
+      : undefined;
+  const rangeStart = items.length ? page * pageSize + 1 : 0;
+  const rangeEnd = page * pageSize + items.length;
 
   return (
     <>
@@ -108,7 +133,7 @@ export default function InventoryClient() {
 
       <div className="page-body">
         {/* Status tabs */}
-        <div style={{ display: "flex", gap: "var(--sp-2)", marginBottom: "var(--sp-5)", flexWrap: "wrap" }}>
+        <div className="segment-group" style={{ marginBottom: "var(--sp-5)" }}>
           {[
             { key: "",          label: "All",       count: counts.total    },
             { key: "critical",  label: "Critical",  count: counts.critical },
@@ -118,17 +143,12 @@ export default function InventoryClient() {
           ].map((tab) => (
             <button
               key={tab.key}
-              className={`btn btn-sm ${status === tab.key ? "btn-primary" : "btn-secondary"}`}
+              className={`segment-btn ${status === tab.key ? "active" : ""}`}
               onClick={() => setStatus(tab.key)}
               id={`inv-tab-${tab.key || "all"}`}
             >
               {tab.label}
-              <span style={{
-                background: status === tab.key ? "rgba(255,255,255,0.25)" : "var(--canvas)",
-                color: status === tab.key ? "#fff" : "var(--tx-tertiary)",
-                padding: "0 5px", borderRadius: "var(--r-full)",
-                fontSize: "var(--ts-2xs)", fontWeight: "var(--fw-bold)",
-              }}>
+              <span className={`badge ${status === tab.key ? "badge-copper" : "badge-neutral"}`} style={{ fontSize: "var(--ts-2xs)", padding: "1px 6px" }}>
                 {tab.count}
               </span>
             </button>
@@ -157,9 +177,23 @@ export default function InventoryClient() {
             <option value="">All stores</option>
             {storeOpts.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
-          <span style={{ marginLeft: "auto", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
-            {sorted.length} items · click a row to view detail
-          </span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "var(--sp-3)" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+              Show
+              <select
+                className="select"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                style={{ width: 72 }}
+                id="inv-page-size"
+              >
+                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+            <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+              {rangeStart}–{rangeEnd}{viewTotal != null ? ` of ${fmtNumber(viewTotal)}` : ""}
+            </span>
+          </div>
         </div>
 
         {error && (
@@ -261,6 +295,31 @@ export default function InventoryClient() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {!error && (rangeEnd > 0 || page > 0) && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--sp-3)", marginTop: "var(--sp-4)" }}>
+            <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+              Page {page + 1}
+            </span>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0 || loading}
+              id="inv-prev"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasNext || loading}
+              id="inv-next"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Item drilldown drawer */}

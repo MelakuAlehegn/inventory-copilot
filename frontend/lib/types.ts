@@ -16,6 +16,15 @@ export interface InventoryItem {
   unit_price: number | null;
 }
 
+export interface InventorySummary {
+  total: number;
+  critical: number;
+  reorder: number;
+  healthy: number;
+  overstock: number;
+  alert_count: number;
+}
+
 // ─── Forecast ─────────────────────────────────────────────────────────────────
 export interface ForecastPoint {
   ds: string;

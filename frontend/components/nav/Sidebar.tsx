@@ -94,8 +94,14 @@ export default function Sidebar({ alertCount = 0 }: { alertCount?: number }) {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <Link href="/settings" className="nav-item" style={{ marginBottom: 4 }}>
-          <Settings size={15} className="nav-icon" />
+        <Link
+          href="/settings"
+          className={`nav-item${pathname === "/settings" ? " active" : ""}`}
+          style={{ marginBottom: 4, width: "100%", marginInline: 0 }}
+          aria-current={pathname === "/settings" ? "page" : undefined}
+          id="nav-settings"
+        >
+          <Settings size={16} className="nav-icon" />
           Settings
         </Link>
         <div
@@ -105,6 +111,7 @@ export default function Sidebar({ alertCount = 0 }: { alertCount?: number }) {
           role="button"
           tabIndex={0}
           id="sidebar-signout"
+          style={{ width: "100%", overflow: "hidden" }}
         >
           <div className="user-avatar">
             {session?.user?.image ? (
@@ -114,7 +121,7 @@ export default function Sidebar({ alertCount = 0 }: { alertCount?: number }) {
               initials
             )}
           </div>
-          <div className="user-name truncate" style={{ flex: 1 }}>
+          <div className="user-name truncate" style={{ flex: 1, minWidth: 0 }}>
             {session?.user?.name ?? session?.user?.email ?? "User"}
           </div>
           <LogOut size={14} style={{ color: "var(--tx-tertiary)", flexShrink: 0 }} />
