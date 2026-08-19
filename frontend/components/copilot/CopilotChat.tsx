@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { apiClient } from "@/lib/api";
 import type { ChatSession, ChatMessage, ToolCallTrace } from "@/lib/types";
-import { Send, Cpu, User, Zap, Check } from "lucide-react";
+import { Send, Terminal, Check, Loader2, MessageSquare, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 const SUGGESTIONS = [
   "Compare base-stock vs naive at 95% service level",
@@ -14,7 +17,13 @@ const SUGGESTIONS = [
   "Explain why the forecast-driven policy beats naive",
 ];
 
-const TOOLS = ["forecast_demand", "compare_policies", "run_simulation", "run_what_if", "get_pareto_curve"];
+const TOOLS: { name: string; desc: string }[] = [
+  { name: "forecast_demand", desc: "Quantile demand forecast for an item/store" },
+  { name: "compare_policies", desc: "Base-stock vs naive over the eval window" },
+  { name: "run_simulation", desc: "Deterministic inventory simulation" },
+  { name: "run_what_if", desc: "Parameter shock scenario" },
+  { name: "get_pareto_curve", desc: "Cost vs service-level frontier" },
+];
 
 /** One step in the agent's live trajectory: a tool call, its args, and (once run) a result. */
 interface AgentStep {
@@ -29,124 +38,100 @@ function argsPreview(args?: Record<string, unknown>): string {
   const s = Object.entries(args)
     .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
     .join(", ");
-  return s.length > 80 ? s.slice(0, 80) + "…" : s;
+  return s.length > 90 ? s.slice(0, 90) + "…" : s;
 }
 
-function StepRow({ step }: { step: AgentStep }) {
-  return (
-    <div style={{ display: "flex", gap: "var(--sp-2)", padding: "var(--sp-2) 0" }}>
-      <div style={{ marginTop: 2, flexShrink: 0, width: 14, display: "flex", justifyContent: "center" }}>
-        {step.done
-          ? <Check size={13} color="var(--ok-500)" />
-          : <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--ts-xs)" }}>
-          <Zap size={11} color="var(--cu-500)" />
-          <span className="mono" style={{ fontWeight: "var(--fw-semibold)" }}>{step.name}</span>
-          {step.args && <span className="truncate" style={{ color: "var(--tx-tertiary)" }}>{argsPreview(step.args)}</span>}
-        </div>
-        {step.summary && (
-          <div className="mono" style={{ fontSize: "var(--ts-2xs)", color: "var(--tx-tertiary)", marginTop: 2, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: "var(--lh-snug)" }}>
-            {step.summary}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+/** Render an assistant answer, turning **bold** markers into emphasised (mono) spans. */
+function renderAnswer(text: string): ReactNode {
+  return text.split("\n").map((line, li) => (
+    <p key={li} className={li > 0 ? "mt-2" : ""}>
+      {line.split(/(\*\*[^*]+\*\*)/g).map((chunk, i) =>
+        chunk.startsWith("**") && chunk.endsWith("**") ? (
+          <strong key={i} className="num font-semibold text-foreground">{chunk.slice(2, -2)}</strong>
+        ) : (
+          <span key={i}>{chunk}</span>
+        ),
+      )}
+    </p>
+  ));
 }
 
-/** The agent's step-by-step trajectory. `status` (when set) is the current live phase. */
 function Trajectory({ steps, status }: { steps: AgentStep[]; status?: string }) {
   if (!steps.length && !status) return null;
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r-md)", background: "var(--surface-raised)", padding: "var(--sp-1) var(--sp-3)", marginBottom: "var(--sp-2)" }}>
-      {steps.map((s, i) => <StepRow key={i} step={s} />)}
-      {status && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "var(--sp-2) 0", fontSize: "var(--ts-xs)", color: "var(--tx-secondary)" }}>
-          <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
-          {status}…
+    <div className="rounded-lg border border-border bg-surface-2/60 p-3">
+      <p className="label-eyebrow mb-3">Agent trajectory</p>
+      <ol className="space-y-1.5">
+        {steps.map((step, i) => (
+          <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <Terminal className="size-3 text-primary" />
+              <span className="num text-[11px] font-semibold">{step.name}</span>
+              {step.done ? <Check className="ml-auto size-3 text-success" /> : <Loader2 className="ml-auto size-3 animate-spin text-primary" />}
+            </div>
+            {step.args ? <p className="num mt-1 text-[10px] leading-relaxed text-muted-foreground">{argsPreview(step.args)}</p> : null}
+            {step.summary ? <p className="num mt-1 text-[10px] leading-relaxed text-success-foreground">→ {step.summary}</p> : null}
+          </li>
+        ))}
+      </ol>
+      {status ? (
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin text-primary" /> {status}…
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === "user";
-  // Persisted assistant turns carry their trajectory as tool_calls (already completed).
+  if (msg.role === "user") {
+    return (
+      <div className="flex justify-end">
+        <p className="max-w-[85%] whitespace-pre-wrap rounded-lg rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">{msg.content}</p>
+      </div>
+    );
+  }
   const steps: AgentStep[] = Array.isArray(msg.tool_calls)
     ? msg.tool_calls.map((tc) => ({ name: tc.tool_name, summary: tc.result_summary, done: true }))
     : [];
   return (
-    <div className={`msg ${isUser ? "msg-user" : ""}`}>
-      <div className={`msg-avatar ${isUser ? "user" : "assistant"}`}>
-        {isUser ? <User size={12} /> : <Cpu size={12} />}
-      </div>
-      <div className="msg-body">
-        {steps.length > 0 && <Trajectory steps={steps} />}
-        <div className={`msg-bubble ${isUser ? "user" : "assistant"}`}>
-          {msg.content.split("\n").map((line, i) => (
-            <p key={i} style={{ margin: i > 0 ? "var(--sp-2) 0 0" : 0 }}>
-              {line.replace(/\*\*(.*?)\*\*/g, (_, m) => m)}
-            </p>
-          ))}
-        </div>
-        <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", marginTop: "var(--sp-1)", paddingLeft: isUser ? 0 : "var(--sp-1)" }}>
-          {new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {steps.length > 0 ? <Trajectory steps={steps} /> : null}
+      <div className="text-sm leading-relaxed text-foreground">{renderAnswer(msg.content)}</div>
     </div>
   );
 }
 
 function StreamingMsg({ content, steps, status }: { content: string; steps: AgentStep[]; status: string }) {
   return (
-    <div className="msg">
-      <div className="msg-avatar assistant"><Cpu size={12} /></div>
-      <div className="msg-body">
-        {/* Trajectory shows the live phase until the answer starts arriving. */}
-        <Trajectory steps={steps} status={content ? undefined : status} />
-        {content ? (
-          <div className="msg-bubble assistant">
-            {content.split("\n").map((line, i) => (
-              <p key={i} style={{ margin: i > 0 ? "var(--sp-2) 0 0" : 0 }}>{line}</p>
-            ))}
-            <span style={{ display: "inline-block", width: 6, height: 14, background: "var(--cu-500)", marginLeft: 2, animation: "pulse 1s infinite", verticalAlign: "text-bottom", borderRadius: 1 }} />
-          </div>
-        ) : (!steps.length && !status) ? (
-          <div className="tool-step running">
-            <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
-            Thinking…
-          </div>
-        ) : null}
-      </div>
+    <div className="space-y-3">
+      <Trajectory steps={steps} status={content ? undefined : status} />
+      {content ? (
+        <div className="text-sm leading-relaxed text-foreground">
+          {renderAnswer(content)}
+          <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-primary align-text-bottom" />
+        </div>
+      ) : !steps.length && !status ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin text-primary" /> Thinking…
+        </div>
+      ) : null}
     </div>
   );
 }
 
-export interface CopilotChatHandle {
-  /** Programmatically ask a question (used by the docked panel's "Ask about this" affordance). */
-  ask: (text: string) => void;
-}
-
 export interface CopilotChatProps {
-  /** "full" shows the history rail (the /copilot workspace); "panel" is the compact docked column. */
   variant?: "full" | "panel";
-  /** Page/item context sent with every message so the agent knows what the user is looking at. */
   context?: Record<string, string | number> | null;
-  /** A question to send automatically once, on mount. */
   initialQuery?: string;
-  /** Bump this key to start a fresh conversation from outside (e.g. a "New chat" button). */
   resetKey?: number;
-  /** A programmatic question (with a nonce); each new nonce is sent once. */
   pendingAsk?: { text: string; nonce: number } | null;
 }
 
 /**
  * The complete chat engine — sessions, streaming, tool traces, input — rendered either as the
  * full workspace (`/copilot`) or as a compact docked panel on any data page. One implementation
- * so both stay in lock-step.
+ * so both stay in lock-step. All numbers come from real tool calls (grounding guardrail).
  */
 export default function CopilotChat({ variant = "full", context, initialQuery, resetKey, pendingAsk }: CopilotChatProps) {
   const { data: session } = useSession();
@@ -161,6 +146,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const [streamContent, setStreamContent] = useState("");
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [status, setStatus] = useState("");
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef   = useRef<HTMLTextAreaElement>(null);
@@ -174,30 +160,19 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
 
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, streamContent]);
-
-  const autoResize = () => {
-    const ta = taRef.current;
-    if (ta) { ta.style.height = "auto"; ta.style.height = `${ta.scrollHeight}px`; }
-  };
+  }, [messages, streamContent, steps, status]);
 
   const sendMessage = useCallback(async (text: string) => {
     const msg = text.trim();
     if (!msg || streaming) return;
 
-    const userMsg: ChatMessage = {
-      id: `tmp-${Date.now()}`,
-      role: "user",
-      content: msg,
-      created_at: new Date().toISOString(),
-    };
+    const userMsg: ChatMessage = { id: `tmp-${Date.now()}`, role: "user", content: msg, created_at: new Date().toISOString() };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setStreaming(true);
     setStreamContent("");
     setSteps([]);
     setStatus("");
-    if (taRef.current) taRef.current.style.height = "auto";
 
     let fullContent = "";
     const trajectory: AgentStep[] = [];
@@ -205,26 +180,19 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     try {
       for await (const event of apiClient(token).streamChatFetch(activeId, msg, context)) {
         if (event.type === "status") {
-          // High-level phase: "Thinking", "Running tools", "Verifying the figures", …
           setStatus((JSON.parse(event.data) as { label?: string }).label ?? "");
         } else if (event.type === "tool") {
-          // A tool call has started: { name, args }.
           const raw = JSON.parse(event.data) as { name?: string; args?: Record<string, unknown> };
           trajectory.push({ name: raw.name ?? "tool", args: raw.args, done: false });
           setSteps([...trajectory]);
         } else if (event.type === "tool_result") {
-          // A tool finished: { name, summary } — mark the matching pending step done.
           const raw = JSON.parse(event.data) as { name?: string; summary?: string };
           const pending = trajectory.find((s) => !s.done && s.name === raw.name);
           if (pending) { pending.done = true; pending.summary = raw.summary; }
           setSteps([...trajectory]);
         } else if (event.type === "message") {
-          // The final answer arrives as { session_id, content }.
-          try {
-            fullContent = (JSON.parse(event.data) as { content?: string }).content ?? "";
-          } catch {
-            fullContent = event.data;
-          }
+          try { fullContent = (JSON.parse(event.data) as { content?: string }).content ?? ""; }
+          catch { fullContent = event.data; }
           setStatus("");
           setStreamContent(fullContent);
         }
@@ -234,9 +202,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       setStreamContent(fullContent);
     }
 
-    // Any step still spinning when the stream ends is considered complete.
     trajectory.forEach((s) => { s.done = true; });
-
     const assistantMsg: ChatMessage = {
       id: `tmp-a-${Date.now()}`,
       role: "assistant",
@@ -251,7 +217,6 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setStatus("");
   }, [activeId, token, streaming, context]);
 
-  // Fire the initial query once (e.g. arriving from an "Ask about this" button).
   useEffect(() => {
     if (initialQuery && !sentInitial.current) {
       sentInitial.current = true;
@@ -261,7 +226,6 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
-  // Reset to a fresh conversation when the parent bumps resetKey.
   useEffect(() => {
     if (resetKey === undefined) return;
     setActiveId(null);
@@ -270,7 +234,6 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
 
-  // Send a programmatic question once per new nonce (context is already up to date here).
   useEffect(() => {
     if (pendingAsk && pendingAsk.nonce !== lastAskNonce.current) {
       lastAskNonce.current = pendingAsk.nonce;
@@ -279,138 +242,148 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   }, [pendingAsk, sendMessage]);
 
   const welcome = (
-    <div style={{ marginTop: isPanel ? "var(--sp-4)" : "var(--sp-8)" }}>
-      {!isPanel && (
-        <div style={{ marginBottom: "var(--sp-8)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)", marginBottom: "var(--sp-4)" }}>
-            <div style={{ width: 40, height: 40, borderRadius: "var(--r-md)", background: "var(--cu-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Cpu size={20} color="#fff" />
-            </div>
-            <div>
-              <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-lg)", fontWeight: "var(--fw-bold)" }}>Inventory Copilot</div>
-              <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>Powered by LangGraph + Gemini · Grounded on deterministic core</div>
-            </div>
-          </div>
-          <p style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)", lineHeight: "var(--lh-relaxed)", maxWidth: 600 }}>
-            I can answer questions about demand forecasts, inventory policy decisions, what-if scenarios,
-            and data analytics. I only report numbers I computed from real tools — I will never invent a figure.
+    <div className={isPanel ? "space-y-5" : "space-y-6"}>
+      {!isPanel ? (
+        <div>
+          <h2 className="text-base font-semibold">Grounded inventory agent</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ask about demand forecasts, inventory policy, and what-if scenarios. Every number is computed by a real tool — the agent never invents a figure.
           </p>
         </div>
-      )}
+      ) : null}
       <div>
-        <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-3)" }}>
-          Try asking
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-2)" }}>
+        <p className="label-eyebrow mb-2">Try asking</p>
+        <ul className="space-y-1.5">
           {(isPanel ? SUGGESTIONS.slice(0, 3) : SUGGESTIONS).map((s) => (
-            <button
-              key={s}
-              className="btn btn-secondary"
-              style={{ justifyContent: "flex-start", height: "auto", padding: "var(--sp-3) var(--sp-4)", textAlign: "left", fontWeight: "var(--fw-regular)", whiteSpace: "normal" }}
-              onClick={() => sendMessage(s)}
-              id={`suggestion-${s.slice(0, 20).replace(/\s/g, "-")}`}
-            >
-              {s}
-            </button>
+            <li key={s}>
+              <button
+                onClick={() => sendMessage(s)}
+                className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-left text-sm transition-colors hover:border-primary/40 hover:bg-copper-50"
+              >
+                {s}
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </div>
   );
 
-  const history = (
-    <div className="chat-hist">
-      <div className="chat-hist-hdr">
-        <span className="chat-hist-title">History</span>
-      </div>
-      <div className="chat-hist-list">
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            className={`chat-hist-item ${activeId === s.id ? "active" : ""}`}
-            onClick={() => {
-              setActiveId(s.id);
-              if (token) apiClient(token).getMessages(s.id).then(setMessages).catch(() => setMessages([]));
-            }}
-            id={`chat-session-${s.id}`}
-          >
-            <div className="chat-hist-item-title">{s.title ?? "Untitled conversation"}</div>
-            <div className="chat-hist-item-meta">{new Date(s.created_at).toLocaleDateString()}</div>
-          </div>
-        ))}
-        {sessions.length === 0 && (
-          <div style={{ padding: "var(--sp-6) var(--sp-4)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textAlign: "center" }}>
-            No conversations yet
-          </div>
-        )}
-      </div>
-      <div style={{ padding: "var(--sp-4)", borderTop: "1px solid var(--border)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", lineHeight: "var(--lh-relaxed)" }}>
-        <strong style={{ color: "var(--tx-secondary)", display: "block", marginBottom: "var(--sp-1)" }}>Tools available</strong>
-        {TOOLS.map((t) => (
-          <div key={t} className="tool-step" style={{ marginBottom: 2 }}>
-            <Zap size={10} />
-            <span className="mono">{t}</span>
-          </div>
-        ))}
-        <div style={{ marginTop: "var(--sp-3)", color: "var(--tx-disabled)" }}>
-          Grounding guardrail active — fabricated numbers are blocked.
-        </div>
-      </div>
+  const conversation = (
+    <div className={cn("space-y-6", isPanel ? "p-4" : "p-5")}>
+      {messages.length === 0 && !streaming ? welcome : null}
+      {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
+      {streaming ? <StreamingMsg content={streamContent} steps={steps} status={status} /> : null}
     </div>
   );
 
-  const main = (
-    <div className="chat-main">
-      <div className="chat-msgs" ref={msgsRef}>
-        {messages.length === 0 && !streaming && welcome}
-        {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
-        {streaming && <StreamingMsg content={streamContent} steps={steps} status={status} />}
+  const composer = (
+    <div className={cn("border-t border-border bg-surface", isPanel ? "p-2.5" : "p-3")}>
+      <div className="relative">
+        <Textarea
+          ref={taRef}
+          rows={isPanel ? 2 : 3}
+          placeholder="Ask about inventory, forecasts, what-if scenarios…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+          }}
+          disabled={streaming}
+          className="resize-none bg-surface-2 pr-12 text-sm"
+          id="copilot-input"
+        />
+        <Button
+          size="icon"
+          className="absolute bottom-2 right-2 size-8"
+          onClick={() => sendMessage(input)}
+          disabled={!input.trim() || streaming}
+          aria-label="Send"
+          id="copilot-send"
+        >
+          {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+        </Button>
       </div>
-
-      <div className="chat-input-area">
-        <div className="chat-input-wrap">
-          <textarea
-            ref={taRef}
-            className="chat-textarea"
-            rows={1}
-            placeholder="Ask about inventory, forecasts, what-if scenarios…"
-            value={input}
-            onChange={(e) => { setInput(e.target.value); autoResize(); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage(input);
-              }
-            }}
-            disabled={streaming}
-            id="copilot-input"
-          />
-          <button
-            className="btn btn-primary btn-icon"
-            style={{ flexShrink: 0 }}
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || streaming}
-            id="copilot-send"
-          >
-            {streaming ? <span className="spinner" style={{ borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }} /> : <Send size={14} />}
-          </button>
-        </div>
-        {!isPanel && (
-          <div style={{ marginTop: "var(--sp-2)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textAlign: "center" }}>
-            Press <kbd style={{ background: "var(--canvas)", border: "1px solid var(--border)", borderRadius: 3, padding: "1px 5px", fontFamily: "var(--ff-mono)", fontSize: "var(--ts-2xs)" }}>Enter</kbd> to send ·{" "}
-            <kbd style={{ background: "var(--canvas)", border: "1px solid var(--border)", borderRadius: 3, padding: "1px 5px", fontFamily: "var(--ff-mono)", fontSize: "var(--ts-2xs)" }}>Shift+Enter</kbd> for newline
-          </div>
-        )}
-      </div>
+      {!isPanel ? (
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          Press <span className="num rounded border border-border px-1">Enter</span> to send ·{" "}
+          <span className="num rounded border border-border px-1">Shift+Enter</span> for newline
+        </p>
+      ) : null}
     </div>
   );
 
-  if (isPanel) return main;
+  if (isPanel) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">{conversation}</div>
+        {composer}
+      </div>
+    );
+  }
 
   return (
-    <div className="chat-shell">
-      {history}
-      {main}
+    <div className="flex h-full min-h-0">
+      {/* History + tools rail */}
+      <aside className="hidden w-[240px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-surface px-4 py-5 xl:flex">
+        <div>
+          <p className="label-eyebrow px-1 pb-2">History</p>
+          <ul className="space-y-0.5">
+            {sessions.map((s) => (
+              <li key={s.id}>
+                <button
+                  onClick={() => {
+                    setActiveId(s.id);
+                    if (token) apiClient(token).getMessages(s.id).then(setMessages).catch(() => setMessages([]));
+                  }}
+                  className={cn(
+                    "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors",
+                    activeId === s.id ? "bg-copper-50 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate">{s.title ?? "Untitled conversation"}</span>
+                    <span className="num text-[10px] opacity-70">{new Date(s.created_at).toLocaleDateString()}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+            {sessions.length === 0 ? <li className="px-2 py-4 text-center text-[11px] text-muted-foreground">No conversations yet</li> : null}
+          </ul>
+        </div>
+        <div>
+          <button
+            onClick={() => setToolsOpen((v) => !v)}
+            className="label-eyebrow flex w-full items-center justify-between px-1 pb-2 transition-colors hover:text-foreground"
+            aria-expanded={toolsOpen}
+          >
+            <span>Tools available</span>
+            <ChevronDown className={cn("size-3.5 transition-transform", toolsOpen && "rotate-180")} />
+          </button>
+          {toolsOpen ? (
+            <>
+              <ul className="space-y-1.5">
+                {TOOLS.map((t) => (
+                  <li key={t.name} className="rounded-md border border-border px-2.5 py-2">
+                    <p className="num flex items-center gap-1.5 text-[11px] font-medium text-primary"><Terminal className="size-3" />{t.name}</p>
+                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{t.desc}</p>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 px-1 text-[11px] text-muted-foreground">Grounding guardrail active — fabricated numbers are blocked.</p>
+            </>
+          ) : null}
+        </div>
+      </aside>
+
+      {/* Conversation + composer */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl">{conversation}</div>
+        </div>
+        <div className="mx-auto w-full max-w-3xl">{composer}</div>
+      </div>
     </div>
   );
 }

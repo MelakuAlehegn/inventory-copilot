@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { InventoryItem } from "@/lib/types";
-import { fmtNumber, fmtCurrency, statusLabel } from "@/lib/utils";
-import { X, Package, TrendingUp, Clock, AlertTriangle, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import type { InventoryItem } from "@/lib/types";
+import { fmtNumber, fmtCurrency } from "@/lib/utils";
+import { X, Package, TrendingUp, Clock, MessageSquare } from "lucide-react";
 import { useCopilot } from "@/components/copilot/CopilotProvider";
+import { StatusChip } from "@/components/app/primitives";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   item: InventoryItem | null;
   onClose: () => void;
 }
 
-// Display-only category derived from the M5 item id prefix (FOODS_1_001 -> FOODS_1).
 function categoryOf(itemId: string): string {
   const parts = itemId.split("_");
   return parts.length >= 2 ? `${parts[0]}_${parts[1]}` : itemId;
@@ -20,16 +21,11 @@ function categoryOf(itemId: string): string {
 
 function MetricRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
   return (
-    <div style={{
-      display: "flex", alignItems: "baseline", justifyContent: "space-between",
-      padding: "var(--sp-3) 0", borderBottom: "1px solid var(--divider)",
-    }}>
-      <span style={{ fontSize: "var(--ts-sm)", color: "var(--tx-secondary)" }}>{label}</span>
-      <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
-        <span style={{ fontFamily: "var(--ff-display)", fontWeight: "var(--fw-semibold)", fontSize: "var(--ts-sm)", textAlign: "right" }}>
-          {value}
-        </span>
-        {sub && <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>{sub}</span>}
+    <div className="flex items-baseline justify-between gap-4 border-b border-divider py-2.5 last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="flex flex-col items-end gap-0.5">
+        <span className="num text-sm font-semibold">{value}</span>
+        {sub ? <span className="text-[11px] text-muted-foreground">{sub}</span> : null}
       </span>
     </div>
   );
@@ -37,25 +33,21 @@ function MetricRow({ label, value, sub }: { label: string; value: React.ReactNod
 
 export function ItemDrawer({ item, onClose }: Props) {
   const { ask, setContext, resetContext } = useCopilot();
-  // True while we're handing off to the copilot, so closing the drawer keeps the item context.
   const handingOff = useRef(false);
 
-  // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  // Lock body scroll when open
   useEffect(() => {
     if (item) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
     return () => { document.body.style.overflow = ""; };
   }, [item]);
 
-  // Ground the copilot on the open item; restore page context when the drawer closes
-  // (unless we're handing off to the copilot, in which case keep the item context).
+  // Ground the copilot on the open item; restore page context on close (unless handing off).
   useEffect(() => {
     if (!item) return;
     setContext({
@@ -78,188 +70,101 @@ export function ItemDrawer({ item, onClose }: Props) {
 
   const askCopilot = () => {
     handingOff.current = true;
-    ask(`Why is ${item.item_id} at store ${item.store_id} flagged as ${statusLabel(item.status)}, and what should I do about it?`);
+    ask(`Why is ${item.item_id} at store ${item.store_id} flagged as ${item.status}, and what should I do about it?`);
     onClose();
   };
 
-  const statusConfig = {
-    critical:  { cls: "badge-danger",  dot: "dot-danger",  icon: AlertTriangle },
-    reorder:   { cls: "badge-warning", dot: "dot-warning", icon: AlertTriangle },
-    healthy:   { cls: "badge-ok",      dot: "dot-ok",      icon: Package       },
-    overstock: { cls: "badge-info",    dot: undefined,     icon: Package       },
-  }[item.status] ?? { cls: "badge-neutral", dot: undefined, icon: Package };
-
-  const stockPct = Math.min(100, (item.current_stock / item.order_up_to) * 100);
-  const reorderPct = (item.reorder_point / item.order_up_to) * 100;
+  const stockPct = Math.min(100, item.order_up_to ? (item.current_stock / item.order_up_to) * 100 : 0);
+  const reorderPct = item.order_up_to ? (item.reorder_point / item.order_up_to) * 100 : 0;
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed", inset: 0,
-          background: "rgba(24,22,15,0.25)",
-          zIndex: 300,
-          animation: "fadeIn 150ms ease-out",
-        }}
-      />
-
-      {/* Drawer */}
+      <div className="fixed inset-0 z-50 bg-foreground/15 backdrop-blur-sm animate-in fade-in" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Item detail: ${item.item_id}`}
-        style={{
-          position: "fixed", top: 0, right: 0, bottom: 0,
-          width: 420,
-          background: "var(--surface)",
-          borderLeft: "1px solid var(--border)",
-          zIndex: 400,
-          display: "flex", flexDirection: "column",
-          boxShadow: "var(--sh-lg)",
-          animation: "slideIn 200ms var(--ease-out)",
-        }}
+        className="fixed inset-y-0 right-0 z-50 flex w-[420px] max-w-[92vw] flex-col border-l border-border bg-surface shadow-raise animate-in slide-in-from-right"
       >
         {/* Header */}
-        <div style={{
-          padding: "var(--sp-5) var(--sp-5) var(--sp-4)",
-          borderBottom: "1px solid var(--border)",
-          display: "flex", alignItems: "flex-start", gap: "var(--sp-4)",
-        }}>
-          <div style={{
-            width: 40, height: 40, flexShrink: 0,
-            background: "var(--cu-50)", borderRadius: "var(--r-sm)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Package size={18} color="var(--cu-500)" />
+        <div className="flex items-start gap-4 border-b border-border px-5 py-4">
+          <div className="grid size-10 shrink-0 place-items-center rounded-md bg-copper-50 text-primary">
+            <Package className="size-[18px]" />
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-lg)", fontWeight: "var(--fw-bold)", letterSpacing: "var(--ls-snug)", marginBottom: 2 }}>
-              {item.item_id}
-            </div>
-            <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
-              {item.store_id} · {categoryOf(item.item_id)}
-            </div>
+          <div className="min-w-0 flex-1">
+            <div className="num text-lg font-bold leading-tight">{item.item_id}</div>
+            <div className="num mt-0.5 text-xs text-muted-foreground">{item.store_id} · {categoryOf(item.item_id)}</div>
           </div>
-          <button
-            className="btn btn-ghost btn-icon btn-sm"
-            onClick={onClose}
-            aria-label="Close panel"
-            id="drawer-close"
-          >
-            <X size={16} />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close panel"><X className="size-4" /></Button>
         </div>
 
-        {/* Scrollable body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "var(--sp-5)" }}>
-          {/* Status + urgency */}
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-3)", marginBottom: "var(--sp-5)" }}>
-            <span className={`badge ${statusConfig.cls}`} style={{ fontSize: "var(--ts-sm)", padding: "4px 12px" }}>
-              {statusConfig.dot && <span className={`dot ${statusConfig.dot}`} />}
-              {statusLabel(item.status)}
-            </span>
-            {item.days_until_stockout != null && (
-              <span style={{ fontSize: "var(--ts-sm)", color: item.days_until_stockout <= 3 ? "var(--dn-text)" : "var(--wn-text)", fontWeight: "var(--fw-semibold)" }}>
-                <Clock size={13} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
-                {item.days_until_stockout}d until stockout
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          <div className="mb-5 flex items-center gap-3">
+            <StatusChip status={item.status} />
+            {item.days_until_stockout != null ? (
+              <span className={`flex items-center gap-1.5 text-sm font-semibold ${item.days_until_stockout <= 3 ? "text-danger" : "text-warning"}`}>
+                <Clock className="size-3.5" />
+                {Math.round(item.days_until_stockout)}d until stockout
               </span>
-            )}
+            ) : null}
           </div>
 
-          {/* Stock level bar */}
-          <div style={{ marginBottom: "var(--sp-6)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "var(--sp-2)", fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+          {/* Stock bar */}
+          <div className="mb-6">
+            <div className="mb-2 flex justify-between text-xs text-muted-foreground">
               <span>Stock level</span>
-              <span className="mono">{fmtNumber(item.current_stock)} / {fmtNumber(item.order_up_to)} (order-up-to)</span>
+              <span className="num">{fmtNumber(item.current_stock)} / {fmtNumber(item.order_up_to)} (order-up-to)</span>
             </div>
-            <div style={{ height: 10, background: "var(--canvas)", borderRadius: "var(--r-full)", overflow: "hidden", position: "relative" }}>
-              {/* Reorder point marker */}
-              <div style={{
-                position: "absolute", left: `${reorderPct}%`, top: 0, bottom: 0, width: 2,
-                background: "var(--wn-500)", zIndex: 2,
-              }} title={`Reorder point: ${fmtNumber(item.reorder_point)}`} />
-              {/* Stock bar */}
-              <div style={{
-                width: `${stockPct}%`, height: "100%",
-                background: item.status === "critical" ? "var(--dn-500)" : item.status === "reorder" ? "var(--wn-500)" : item.status === "overstock" ? "var(--in-500)" : "var(--ok-500)",
-                borderRadius: "var(--r-full)",
-                transition: "width 400ms var(--ease-out)",
-              }} />
+            <div className="relative h-2.5 overflow-hidden rounded-full bg-surface-2">
+              <div className="absolute inset-y-0 z-10 w-0.5 bg-warning" style={{ left: `${reorderPct}%` }} title={`Reorder point: ${fmtNumber(item.reorder_point)}`} />
+              <div
+                className={`h-full rounded-full ${item.status === "critical" ? "bg-danger" : item.status === "reorder" ? "bg-warning" : item.status === "overstock" ? "bg-info" : "bg-success"}`}
+                style={{ width: `${stockPct}%` }}
+              />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>
+            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
               <span>0</span>
-              <span style={{ color: "var(--wn-text)" }}>▲ reorder ({fmtNumber(item.reorder_point)})</span>
+              <span className="text-warning">▲ reorder ({fmtNumber(item.reorder_point)})</span>
               <span>{fmtNumber(item.order_up_to)}</span>
             </div>
           </div>
 
-          {/* Key metrics */}
-          <div style={{ marginBottom: "var(--sp-5)" }}>
-            <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
-              Inventory Position
-            </div>
-            <MetricRow label="Current Stock"  value={<span className="mono">{fmtNumber(item.current_stock)}</span>} />
-            <MetricRow label="Safety Stock"   value={<span className="mono">{fmtNumber(item.safety_stock)}</span>} sub="Buffer held against demand variability" />
-            <MetricRow label="Reorder Point"  value={<span className="mono">{fmtNumber(item.reorder_point)}</span>} sub="Order when stock falls to this level" />
-            <MetricRow label="Order-Up-To"    value={<span className="mono">{fmtNumber(item.order_up_to)}</span>}  sub="Target stock level after replenishment" />
-            <MetricRow label="Recommended Order Qty" value={<span className="mono">{fmtNumber(item.recommended_order_qty)}</span>} sub="Units to order now" />
+          <p className="label-eyebrow mb-1">Inventory position</p>
+          <div className="mb-5">
+            <MetricRow label="Current stock" value={fmtNumber(item.current_stock)} />
+            <MetricRow label="Safety stock" value={fmtNumber(item.safety_stock)} sub="Buffer against demand variability" />
+            <MetricRow label="Reorder point" value={fmtNumber(item.reorder_point)} sub="Order when stock falls to this level" />
+            <MetricRow label="Order-up-to" value={fmtNumber(item.order_up_to)} sub="Target level after replenishment" />
+            <MetricRow label="Recommended order qty" value={<span className="text-primary">{fmtNumber(item.recommended_order_qty)}</span>} sub="Units to order now" />
           </div>
 
-          <div style={{ marginBottom: "var(--sp-5)" }}>
-            <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
-              Demand &amp; Price
-            </div>
-            <MetricRow label="Mean Daily Demand" value={<span className="mono">{item.mean_daily_demand.toFixed(2)}</span>} sub="Average units sold per day" />
-            <MetricRow label="Unit Price"        value={item.unit_price != null ? fmtCurrency(item.unit_price) : "—"} />
-            {item.days_until_stockout != null && (
-              <MetricRow label="Days Until Stockout" value={<span className="mono">{Math.round(item.days_until_stockout)}d</span>} sub="At current mean demand" />
-            )}
+          <p className="label-eyebrow mb-1">Demand &amp; price</p>
+          <div className="mb-5">
+            <MetricRow label="Mean daily demand" value={item.mean_daily_demand.toFixed(2)} sub="Average units sold per day" />
+            <MetricRow label="Unit price" value={item.unit_price != null ? fmtCurrency(item.unit_price) : "—"} />
           </div>
 
+          <p className="label-eyebrow mb-1">Item info</p>
           <div>
-            <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--tx-tertiary)", marginBottom: "var(--sp-2)" }}>
-              Item Info
-            </div>
-            <MetricRow label="Item ID"   value={<span className="mono">{item.item_id}</span>} />
-            <MetricRow label="Store"     value={<span className="mono">{item.store_id}</span>} />
-            <MetricRow label="Category"  value={<span className="badge badge-neutral">{categoryOf(item.item_id)}</span>} />
-            <MetricRow label="Series ID" value={<span className="mono" style={{ fontSize: "var(--ts-xs)" }}>{item.unique_id}</span>} />
+            <MetricRow label="Series ID" value={<span className="text-xs">{item.unique_id}</span>} />
+            <MetricRow label="Store" value={item.store_id} />
+            <MetricRow label="Category" value={categoryOf(item.item_id)} />
           </div>
         </div>
 
-        {/* Footer actions */}
-        <div style={{
-          padding: "var(--sp-4) var(--sp-5)",
-          borderTop: "1px solid var(--border)",
-          display: "flex", gap: "var(--sp-3)",
-        }}>
-          <button
-            onClick={askCopilot}
-            className="btn btn-primary"
-            style={{ flex: 1, justifyContent: "center" }}
-            id="drawer-ask-copilot"
-          >
-            <MessageSquare size={14} />
-            Ask Copilot
-          </button>
-          <Link
-            href={`/scenarios?item=${item.item_id}&store=${item.store_id}`}
-            className="btn btn-secondary"
-            style={{ flex: 1, justifyContent: "center" }}
-            id="drawer-run-scenario"
-          >
-            <TrendingUp size={14} />
-            Run Scenario
-          </Link>
+        {/* Footer */}
+        <div className="flex gap-3 border-t border-border px-5 py-4">
+          <Button className="flex-1" onClick={askCopilot} id="drawer-ask-copilot">
+            <MessageSquare className="size-4" /> Ask Copilot
+          </Button>
+          <Button asChild variant="outline" className="flex-1">
+            <Link href={`/scenarios?item=${item.item_id}&store=${item.store_id}`} id="drawer-run-scenario">
+              <TrendingUp className="size-4" /> Run scenario
+            </Link>
+          </Button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-      `}</style>
     </>
   );
 }

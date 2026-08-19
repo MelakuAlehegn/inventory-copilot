@@ -1,37 +1,37 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { X } from "lucide-react";
 import { useCopilot } from "./CopilotProvider";
 import CopilotChat from "./CopilotChat";
-import { X, Cpu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
- * The collapsible left-docked copilot: slides in between the nav rail and the page data, so
- * you can read the data and ask about it at the same time. Hidden on `/copilot`, which is
- * already the full copilot workspace. Kept mounted so the conversation survives open/close.
+ * The collapsible left-docked copilot: an in-flow column between the nav rail and the page
+ * content, so opening it naturally shifts the data right. Hidden on `/copilot` (the full
+ * workspace). Renders the real SSE-backed CopilotChat, grounded on the current page context.
  */
 export default function CopilotDock() {
   const { open, context, pendingAsk, closePanel } = useCopilot();
   const pathname = usePathname();
-  if (pathname === "/copilot") return null;
+  if (pathname === "/copilot" || !open) return null;
 
   return (
-    <aside className={`copilot-dock ${open ? "open" : ""}`} aria-hidden={!open}>
-      <div className="copilot-dock-hdr">
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
-          <div style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", background: "var(--cu-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Cpu size={13} color="#fff" />
-          </div>
-          <span style={{ fontFamily: "var(--ff-display)", fontSize: "var(--ts-sm)", fontWeight: "var(--fw-semibold)" }}>Copilot</span>
+    <aside className="flex w-[380px] shrink-0 flex-col border-r border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Copilot</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            Grounded on <span className="num">{String(context.item_id ?? context.page)}</span>
+          </p>
         </div>
-        <button className="btn btn-ghost btn-icon btn-sm" onClick={closePanel} title="Close" id="copilot-dock-close">
-          <X size={14} />
-        </button>
+        <Button variant="ghost" size="icon" onClick={closePanel} aria-label="Close copilot">
+          <X className="size-4" />
+        </Button>
       </div>
-      <div className="copilot-dock-ctx">
-        Grounded on <span className="mono">{String(context.item_id ?? context.page)}</span>
+      <div className="min-h-0 flex-1">
+        <CopilotChat variant="panel" context={context} pendingAsk={pendingAsk} />
       </div>
-      <CopilotChat variant="panel" context={context} pendingAsk={pendingAsk} />
     </aside>
   );
 }

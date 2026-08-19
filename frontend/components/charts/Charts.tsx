@@ -11,6 +11,8 @@ import {
   Legend,
   Line,
   LineChart,
+  Area,
+  ComposedChart,
   ReferenceLine,
 } from "recharts";
 import type { ParetoPoint, ForecastPoint } from "@/lib/types";
@@ -19,6 +21,8 @@ import { useChartTokens, type ChartTokens } from "./useChartTokens";
 interface Props {
   data: ParetoPoint[];
   height?: number;
+  /** Which policy curves to draw. Defaults to both; pass one to declutter the chart. */
+  policies?: ("base_stock" | "naive")[];
 }
 
 const LABELS = {
@@ -50,8 +54,10 @@ function ParetoTooltip({ active, payload, tokens }: { active?: boolean; payload?
   );
 }
 
-export function ParetoChart({ data, height = 280 }: Props) {
+export function ParetoChart({ data, height = 280, policies = ["base_stock", "naive"] }: Props) {
   const t = useChartTokens();
+  const showBase = policies.includes("base_stock");
+  const showNaive = policies.includes("naive");
   const base  = data.filter((d) => d.policy === "base_stock");
   const naive = data.filter((d) => d.policy === "naive");
 
@@ -73,7 +79,6 @@ export function ParetoChart({ data, height = 280 }: Props) {
             tick={{ fontSize: 11, fill: t.tick, fontFamily: "Inter, sans-serif" }}
             tickLine={false}
             axisLine={{ stroke: t.axis }}
-            label={{ value: "Fill Rate (%)", position: "insideBottom", offset: -4, fontSize: 11, fill: t.tick }}
           />
           <YAxis
             type="number"
@@ -84,30 +89,33 @@ export function ParetoChart({ data, height = 280 }: Props) {
             tick={{ fontSize: 11, fill: t.tick, fontFamily: "Inter, sans-serif" }}
             tickLine={false}
             axisLine={false}
-            width={48}
-            label={{ value: "Cost ($k)", angle: -90, position: "insideLeft", offset: 10, fontSize: 11, fill: t.tick }}
+            width={56}
           />
           <Tooltip content={<ParetoTooltip tokens={t} />} />
           <Legend
             wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
             formatter={(value) => LABELS[value as keyof typeof LABELS] ?? value}
           />
-          <Scatter
-            name="base_stock"
-            data={basePoints}
-            fill={t.basestock}
-            line={{ stroke: t.basestock, strokeWidth: 2 }}
-            lineType="fitting"
-            shape="circle"
-          />
-          <Scatter
-            name="naive"
-            data={naivePoints}
-            fill={t.naive}
-            line={{ stroke: t.naive, strokeWidth: 2, strokeDasharray: "4 4" }}
-            lineType="fitting"
-            shape="diamond"
-          />
+          {showBase ? (
+            <Scatter
+              name="base_stock"
+              data={basePoints}
+              fill={t.basestock}
+              line={{ stroke: t.basestock, strokeWidth: 2 }}
+              lineType="fitting"
+              shape="circle"
+            />
+          ) : null}
+          {showNaive ? (
+            <Scatter
+              name="naive"
+              data={naivePoints}
+              fill={t.naive}
+              line={{ stroke: t.naive, strokeWidth: 2, strokeDasharray: "4 4" }}
+              lineType="fitting"
+              shape="diamond"
+            />
+          ) : null}
         </ScatterChart>
       </ResponsiveContainer>
     </div>
@@ -141,46 +149,37 @@ function ForecastTooltip({ active, payload, label, tokens }: { active?: boolean;
   );
 }
 
-export function ForecastChart({ data, height = 300 }: ForecastChartProps) {
+export function ForecastChart({ data, height = 340 }: ForecastChartProps) {
   const t = useChartTokens();
   const cutoff = data.findIndex((d) => d.actual == null);
   const cutoffDate = cutoff >= 0 ? data[cutoff]?.ds : undefined;
+  const tick = { fontSize: 10, fill: t.tick, fontFamily: "var(--font-mono)" };
+
+  // Uncertainty fan: fill each quantile from the baseline, lightest (q99) behind darkest (q80).
+  const bands = [
+    { key: "q99", fill: t.q99, opacity: 0.55 },
+    { key: "q95", fill: t.q95, opacity: 0.55 },
+    { key: "q90", fill: t.q90, opacity: 0.5 },
+    { key: "q80", fill: t.q50, opacity: 0.15 },
+  ];
 
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-          <CartesianGrid stroke={t.grid} strokeDasharray="4 4" />
-          <XAxis
-            dataKey="ds"
-            tick={{ fontSize: 10, fill: t.tick, fontFamily: "Inter, sans-serif" }}
-            tickLine={false}
-            axisLine={{ stroke: t.axis }}
-            interval={3}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: t.tick, fontFamily: "Inter, sans-serif" }}
-            tickLine={false}
-            axisLine={false}
-            width={36}
-          />
+        <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
+          <CartesianGrid stroke={t.grid} vertical={false} />
+          <XAxis dataKey="ds" tick={tick} tickLine={false} axisLine={{ stroke: t.axis }} minTickGap={28} />
+          <YAxis tick={tick} tickLine={false} axisLine={false} width={44} />
           <Tooltip content={<ForecastTooltip tokens={t} />} />
-          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+          {bands.map((b) => (
+            <Area key={b.key} type="monotone" dataKey={b.key} stroke="none" fill={b.fill} fillOpacity={b.opacity} isAnimationActive={false} />
+          ))}
+          <Line type="monotone" dataKey="q50" stroke={t.q50} strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Line type="monotone" dataKey="actual" stroke={t.actual} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
           {cutoffDate && (
-            <ReferenceLine
-              x={cutoffDate}
-              stroke={t.cutoff}
-              strokeDasharray="3 3"
-              label={{ value: "Forecast →", position: "top", fontSize: 10, fill: t.tick }}
-            />
+            <ReferenceLine x={cutoffDate} stroke={t.tick} strokeDasharray="4 4" label={{ value: "forecast start", position: "insideTopRight", fontSize: 10, fill: t.tick }} />
           )}
-          {/* Quantile bands as lines */}
-          <Line dataKey="q99" name="q99" stroke={t.q99} strokeWidth={1} dot={false} strokeDasharray="3 3" />
-          <Line dataKey="q95" name="q95" stroke={t.q95} strokeWidth={1} dot={false} strokeDasharray="3 3" />
-          <Line dataKey="q90" name="q90" stroke={t.q90} strokeWidth={1.5} dot={false} />
-          <Line dataKey="q50" name="q50 (median)" stroke={t.q50} strokeWidth={2} dot={false} />
-          <Line dataKey="actual" name="Actual" stroke={t.actual} strokeWidth={2} dot={{ r: 2, fill: t.actual }} connectNulls={false} />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

@@ -1,10 +1,11 @@
-import TopBar from "@/components/nav/TopBar";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, Package, TrendingUp } from "lucide-react";
 import { auth } from "@/auth";
 import { apiClient } from "@/lib/api";
 import { fmtPct, fmtNumber, fmtCurrency } from "@/lib/utils";
-import { AlertTriangle, TrendingUp, Package, Zap } from "lucide-react";
-import Link from "next/link";
-import { ParetoChartWrapper } from "@/components/charts/ParetoChartWrapper";
+import { TopBar } from "@/components/app/top-bar";
+import { Delta, Kpi, KpiStrip, Panel, PanelHeader, StatusChip, fmt } from "@/components/app/primitives";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Dashboard" };
 
@@ -12,306 +13,169 @@ export default async function DashboardPage() {
   const session = await auth();
   const api = apiClient(session?.backendToken);
 
+  let data;
   try {
-    const [scorecard, compare, inventory, pareto] = await Promise.all([
+    const [scorecard, compare, summary, critical] = await Promise.all([
       api.getScorecard(),
       api.comparePolicies(),
-      api.getInventory({ limit: 5000 }),
-      api.getPareto(),
+      api.getInventorySummary(),
+      api.getInventory({ status: "critical", limit: 10 }),
     ]);
-
-    const critical = inventory.filter((i) => i.status === "critical");
-    const reorder = inventory.filter((i) => i.status === "reorder");
-    const atRisk = critical.length + reorder.length;
-
-    const basePareto = pareto.filter((p) => p.policy === "base_stock");
-    const naivePareto = pareto.filter((p) => p.policy === "naive");
-
-    const fc = scorecard.forecast;
-    const dc = scorecard.decision;
-    const fillDelta = dc.fill_rate_model - dc.fill_rate_naive;
-
-    const compRows = [
-      { label: "Fill Rate", base: fmtPct(compare.base_stock.fill_rate), naive: fmtPct(compare.naive.fill_rate) },
-      { label: "Stockout Units", base: fmtNumber(compare.base_stock.stockout_units), naive: fmtNumber(compare.naive.stockout_units) },
-      { label: "Stockout-Day Rate", base: fmtPct(compare.base_stock.stockout_day_rate), naive: fmtPct(compare.naive.stockout_day_rate) },
-      { label: "Avg On-Hand", base: compare.base_stock.avg_on_hand.toFixed(1), naive: compare.naive.avg_on_hand.toFixed(1) },
-      { label: "Total Cost", base: fmtCurrency(compare.base_stock.total_cost), naive: fmtCurrency(compare.naive.total_cost) },
-    ];
-
-    const headline = [
-      { icon: TrendingUp, label: "WRMSSE Improvement", value: `+${(fc.wrmsse_improvement * 100).toFixed(1)}%`, sub: "Model vs seasonal-naive" },
-      { icon: Package, label: "Stockout Reduction", value: `−${(dc.stockout_units_reduction * 100).toFixed(1)}%`, sub: "Forecast vs naive policy" },
-      { icon: Zap, label: "Series Processed", value: fmtNumber(fc.n_series), sub: "FOODS × stores" },
-    ];
-
-    return (
-      <>
-        <TopBar
-          title="Dashboard"
-          subtitle={`M5 Walmart FOODS · ${fmtNumber(fc.n_series)} series · 28-day horizon`}
-        />
-
-        <div className="page-body">
-          {/* ── Alert banner ──────────────────────────────── */}
-          {critical.length > 0 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: "var(--sp-4)",
-              padding: "var(--sp-3) var(--sp-4)",
-              background: "var(--dn-bg)", border: "1px solid #E8AAAA",
-              borderRadius: "var(--r-md)", marginBottom: "var(--sp-6)",
-              fontSize: "var(--ts-sm)",
-            }}>
-              <AlertTriangle size={16} color="var(--dn-500)" />
-              <span>
-                <strong style={{ color: "var(--dn-text)" }}>{critical.length} items critical</strong>
-                <span style={{ color: "var(--tx-secondary)" }}> — stockout imminent. Review reorder queue.</span>
-              </span>
-              <Link href="/inventory?status=critical" className="btn btn-danger btn-sm" style={{ marginLeft: "auto" }}>
-                View Critical
-              </Link>
-            </div>
-          )}
-
-          {/* ── KPI strip ─────────────────────────────────── */}
-          <div className="metric-strip" style={{ marginBottom: "var(--sp-8)" }}>
-            <div className="metric-cell">
-              <div className="metric-label">Forecast Accuracy Gain</div>
-              <div className="metric-value copper">+{(fc.wrmsse_improvement * 100).toFixed(1)}%</div>
-              <div className="metric-context">vs seasonal-naive WRMSSE</div>
-            </div>
-            <div className="metric-cell">
-              <div className="metric-label">Mean Fill Rate</div>
-              <div className="metric-value success">{fmtPct(dc.fill_rate_model)}</div>
-              <div className="metric-context">
-                <span style={{ color: "var(--ok-text)", fontWeight: "var(--fw-semibold)" }}>
-                  ↑ {fillDelta >= 0 ? "+" : ""}{(fillDelta * 100).toFixed(1)}%
-                </span>
-                &nbsp;vs naive baseline
-              </div>
-            </div>
-            <div className="metric-cell">
-              <div className="metric-label">Stockout Risk Items</div>
-              <div className="metric-value danger">{atRisk}</div>
-              <div className="metric-context">{critical.length} critical · {reorder.length} reorder soon</div>
-            </div>
-            <div className="metric-cell">
-              <div className="metric-label">Cost Reduction</div>
-              <div className="metric-value">−{(dc.total_cost_reduction * 100).toFixed(1)}%</div>
-              <div className="metric-context">vs naive baseline total cost</div>
-            </div>
-          </div>
-
-          {/* ── Main two-column layout ────────────────────── */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: "var(--sp-8)", alignItems: "start" }}>
-
-            {/* Left col */}
-            <div>
-              {/* Reorder queue */}
-              <div className="section">
-                <div className="section-hdr">
-                  <div>
-                    <div className="section-title">Reorder Queue</div>
-                    <div className="section-sub">{atRisk} items need attention</div>
-                  </div>
-                  <Link href="/inventory" className="btn btn-ghost btn-sm">All inventory →</Link>
-                </div>
-                <div className="tbl-wrap">
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th>Item</th>
-                        <th>Store</th>
-                        <th className="text-right">Stock</th>
-                        <th className="text-right">Reorder Pt.</th>
-                        <th className="text-right">Days Left</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...critical, ...reorder].slice(0, 10).map((item) => (
-                        <tr key={item.unique_id}>
-                          <td>
-                            <div style={{ fontWeight: "var(--fw-medium)" }}>{item.item_id}</div>
-                          </td>
-                          <td style={{ color: "var(--tx-secondary)" }}>{item.store_id}</td>
-                          <td className="text-right mono">{fmtNumber(item.current_stock)}</td>
-                          <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>{fmtNumber(item.reorder_point)}</td>
-                          <td className="text-right">
-                            {item.days_until_stockout != null ? (
-                              <span style={{
-                                fontWeight: "var(--fw-semibold)",
-                                color: item.days_until_stockout <= 3 ? "var(--dn-text)" : "var(--wn-text)",
-                              }}>
-                                {Math.round(item.days_until_stockout)}d
-                              </span>
-                            ) : "—"}
-                          </td>
-                          <td>
-                            <span className={`badge badge-${item.status === "critical" ? "danger" : "warning"}`}>
-                              <span className={`dot dot-${item.status === "critical" ? "danger" : "warning"}`} />
-                              {item.status === "critical" ? "Critical" : "Reorder"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ── Pareto Chart ────────────────────────────── */}
-              <div className="section">
-                <div className="section-hdr">
-                  <div>
-                    <div className="section-title">Service vs Cost — Pareto Frontier</div>
-                    <div className="section-sub">Fill rate against combined holding + stockout cost, base-stock vs naive across service levels</div>
-                  </div>
-                  <Link href="/scenarios" className="btn btn-ghost btn-sm">Explore →</Link>
-                </div>
-                {/* Client chart wrapper (recharts needs client) */}
-                <ParetoChartWrapper data={pareto} />
-
-                {/* Pareto table below chart */}
-                <div className="tbl-wrap" style={{ marginTop: "var(--sp-4)" }}>
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th>Service Target</th>
-                        <th className="text-right">Base-Stock Fill</th>
-                        <th className="text-right">Naive Fill</th>
-                        <th className="text-right">Base-Stock Cost</th>
-                        <th className="text-right">Naive Cost</th>
-                        <th>Result</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {basePareto.map((bp) => {
-                        const np = naivePareto.find((n) => n.service_level === bp.service_level);
-                        const wins = bp.fill_rate >= (np?.fill_rate ?? 0) && bp.combined_cost <= (np?.combined_cost ?? Infinity);
-                        return (
-                          <tr key={bp.service_level}>
-                            <td className="mono" style={{ fontWeight: "var(--fw-medium)" }}>
-                              {(bp.service_level * 100).toFixed(0)}%
-                            </td>
-                            <td className="text-right mono" style={{ color: "var(--ok-text)", fontWeight: "var(--fw-semibold)" }}>
-                              {fmtPct(bp.fill_rate)}
-                            </td>
-                            <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>
-                              {np ? fmtPct(np.fill_rate) : "—"}
-                            </td>
-                            <td className="text-right mono">${(bp.combined_cost / 1000).toFixed(1)}k</td>
-                            <td className="text-right mono" style={{ color: "var(--tx-tertiary)" }}>
-                              {np ? `$${(np.combined_cost / 1000).toFixed(1)}k` : "—"}
-                            </td>
-                            <td>
-                              {wins ? (
-                                <span className="badge badge-ok">Base-stock wins</span>
-                              ) : (
-                                <span className="badge badge-neutral">Comparable</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Right col */}
-            <div>
-              {/* Policy performance */}
-              <div className="section">
-                <div className="section-hdr">
-                  <div className="section-title">Policy Comparison</div>
-                  <Link href="/scenarios" className="btn btn-ghost btn-sm">What-if →</Link>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  {compRows.map((row) => (
-                    <div key={row.label} style={{
-                      display: "flex", alignItems: "baseline", gap: "var(--sp-3)",
-                      padding: "var(--sp-3) 0", borderBottom: "1px solid var(--divider)",
-                    }}>
-                      <span style={{ flex: 1, fontSize: "var(--ts-sm)", color: "var(--tx-secondary)" }}>{row.label}</span>
-                      <span style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }} className="mono">{row.naive}</span>
-                      <span style={{ fontSize: "var(--ts-sm)", fontWeight: "var(--fw-bold)", minWidth: 64, textAlign: "right" }} className="mono">{row.base}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", marginTop: "var(--sp-3)" }}>
-                  Base-stock vs naive · {fmtPct(dc.service_level)} service level · {fmtNumber(fc.n_series)} series
-                </div>
-              </div>
-
-              {/* Headline stats */}
-              <div className="section">
-                <div className="section-hdr">
-                  <div className="section-title">Headline Numbers</div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--sp-5)" }}>
-                  {headline.map((s) => {
-                    const Icon = s.icon;
-                    return (
-                      <div key={s.label} style={{ display: "flex", gap: "var(--sp-3)", alignItems: "flex-start" }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: "var(--r-sm)",
-                          background: "var(--cu-50)", display: "flex", alignItems: "center",
-                          justifyContent: "center", flexShrink: 0, marginTop: 2,
-                        }}>
-                          <Icon size={15} color="var(--cu-500)" />
-                        </div>
-                        <div>
-                          <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>
-                            {s.label}
-                          </div>
-                          <div className="mono" style={{ fontSize: "var(--ts-xl)", fontWeight: "var(--fw-bold)", color: "var(--cu-500)", letterSpacing: "var(--ls-tight)" }}>
-                            {s.value}
-                          </div>
-                          <div style={{ fontSize: "var(--ts-xs)", color: "var(--tx-tertiary)" }}>{s.sub}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Quick ask */}
-              <div style={{ padding: "var(--sp-4) var(--sp-5)", background: "var(--cu-50)", border: "1px solid var(--cu-200)", borderRadius: "var(--r-md)" }}>
-                <div style={{ fontSize: "var(--ts-xs)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--cu-700)", marginBottom: "var(--sp-3)" }}>
-                  Ask the Copilot
-                </div>
-                {[
-                  "Why does base-stock beat naive?",
-                  "What if demand rises 30%?",
-                  "Compare 95% vs 99% service level",
-                ].map((q) => (
-                  <Link
-                    key={q}
-                    href={`/copilot?q=${encodeURIComponent(q)}`}
-                    style={{ display: "block", fontSize: "var(--ts-sm)", color: "var(--cu-600)", marginBottom: "var(--sp-2)", textDecoration: "underline", textDecorationColor: "var(--cu-200)" }}
-                  >
-                    → {q}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
+    data = { scorecard, compare, summary, critical };
   } catch {
     return (
       <>
         <TopBar title="Dashboard" subtitle="M5 Walmart FOODS" />
-        <div className="page-body">
-          <div className="empty">
-            <div className="empty-title">Couldn&apos;t load data.</div>
-            <p className="empty-desc">The backend could not be reached. Please try again.</p>
-          </div>
+        <div className="p-6">
+          <Panel className="flex flex-col items-center gap-2 px-6 py-20 text-center">
+            <p className="text-sm font-medium">Couldn&apos;t load data</p>
+            <p className="text-xs text-muted-foreground">The backend could not be reached. Please try again.</p>
+          </Panel>
         </div>
       </>
     );
   }
+
+  const { scorecard, compare, summary, critical } = data;
+  const fc = scorecard.forecast;
+  const dc = scorecard.decision;
+  const atRisk = summary.critical + summary.reorder;
+  const pct = (model: number, naive: number) => (naive ? ((model - naive) / naive) * 100 : 0);
+
+  const policyRows = [
+    { metric: "Fill Rate", naive: fmtPct(compare.naive.fill_rate), model: fmtPct(compare.base_stock.fill_rate), delta: pct(compare.base_stock.fill_rate, compare.naive.fill_rate), better: "up" as const },
+    { metric: "Stockout Units", naive: fmtNumber(compare.naive.stockout_units), model: fmtNumber(compare.base_stock.stockout_units), delta: pct(compare.base_stock.stockout_units, compare.naive.stockout_units), better: "down" as const },
+    { metric: "Stockout-Day Rate", naive: fmtPct(compare.naive.stockout_day_rate), model: fmtPct(compare.base_stock.stockout_day_rate), delta: pct(compare.base_stock.stockout_day_rate, compare.naive.stockout_day_rate), better: "down" as const },
+    { metric: "Avg On-Hand", naive: compare.naive.avg_on_hand.toFixed(1), model: compare.base_stock.avg_on_hand.toFixed(1), delta: pct(compare.base_stock.avg_on_hand, compare.naive.avg_on_hand), better: "down" as const },
+    { metric: "Total Cost", naive: fmtCurrency(compare.naive.total_cost), model: fmtCurrency(compare.base_stock.total_cost), delta: pct(compare.base_stock.total_cost, compare.naive.total_cost), better: "down" as const },
+  ];
+
+  const headline = [
+    { icon: TrendingUp, label: "WRMSSE improvement", value: `+${(fc.wrmsse_improvement * 100).toFixed(1)}%`, note: "Model vs seasonal-naive" },
+    { icon: Package, label: "Stockout reduction", value: `−${(dc.stockout_units_reduction * 100).toFixed(1)}%`, note: "Forecast vs naive policy" },
+    { icon: AlertTriangle, label: "Cost reduction", value: `−${(dc.total_cost_reduction * 100).toFixed(1)}%`, note: "Total simulated cost" },
+  ];
+
+  return (
+    <>
+      <TopBar title="Dashboard" subtitle={`M5 Walmart FOODS · ${fmtNumber(fc.n_series)} series · 28-day horizon`} />
+
+      <div className="space-y-5 p-6">
+        {summary.critical > 0 ? (
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/25 bg-danger-soft px-4 py-3">
+            <div className="flex items-center gap-3 text-sm">
+              <AlertTriangle className="size-4 text-danger" />
+              <p>
+                <span className="num font-semibold">{fmt(summary.critical)}</span> items critical — stockout imminent. Review the reorder queue.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="destructive">
+              <Link href="/inventory?status=critical">View critical</Link>
+            </Button>
+          </div>
+        ) : null}
+
+        <KpiStrip>
+          <Kpi label="Total series" value={fmt(fc.n_series)} hint="10 stores · 3 FOODS depts" />
+          <Kpi label="Service level" value={fmtPct(dc.service_level)} hint="Target coverage probability" />
+          <Kpi label="Forecast accuracy gain" value={`+${(fc.wrmsse_improvement * 100).toFixed(1)}%`} tone="primary" hint="vs seasonal-naive WRMSSE" />
+          <Kpi
+            label="Mean fill rate"
+            value={fmtPct(dc.fill_rate_model)}
+            tone="success"
+            hint={<><Delta value={pct(dc.fill_rate_model, dc.fill_rate_naive)} /> vs naive baseline</>}
+          />
+        </KpiStrip>
+
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.6fr_1fr]">
+          <Panel>
+            <PanelHeader
+              title="Reorder queue"
+              subtitle={`${fmt(atRisk)} items need attention`}
+              action={
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/inventory" className="gap-1">All inventory <ArrowRight className="size-3.5" /></Link>
+                </Button>
+              }
+            />
+            {critical.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">No critical items — inventory is healthy.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left">
+                    {["Item", "Store", "Stock", "Reorder pt.", "Days left", "Status"].map((h, i) => (
+                      <th key={h} className={`label-eyebrow px-5 py-2.5 ${i > 1 ? "text-right" : ""}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {critical.map((row) => (
+                    <tr key={row.unique_id} className="border-b border-border last:border-0 hover:bg-surface-2">
+                      <td className="num px-5 py-2.5 text-[13px]">{row.item_id}</td>
+                      <td className="num px-5 py-2.5 text-[13px] text-muted-foreground">{row.store_id}</td>
+                      <td className="num px-5 py-2.5 text-right text-[13px]">{fmtNumber(row.current_stock)}</td>
+                      <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(row.reorder_point)}</td>
+                      <td className="num px-5 py-2.5 text-right text-[13px] font-medium">
+                        {row.days_until_stockout != null ? `${Math.round(row.days_until_stockout)}d` : "—"}
+                      </td>
+                      <td className="px-5 py-2.5 text-right">
+                        <StatusChip status={row.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Panel>
+
+          <div className="space-y-5">
+            <Panel>
+              <PanelHeader
+                title="Base-stock vs naive"
+                subtitle={`${fmtPct(dc.service_level)} service level · ${fmtNumber(fc.n_series)} series`}
+                action={
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/scenarios" className="gap-1">What-if <ArrowRight className="size-3.5" /></Link>
+                  </Button>
+                }
+              />
+              <ul className="divide-y divide-border">
+                {policyRows.map((row) => (
+                  <li key={row.metric} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                    <span className="text-muted-foreground">{row.metric}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="num text-xs text-muted-foreground">{row.naive}</span>
+                      <span className="num font-semibold">{row.model}</span>
+                      <span className="w-14 text-right">
+                        <Delta value={row.delta} invert={row.better === "down"} />
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+
+            <Panel>
+              <PanelHeader title="Headline numbers" subtitle="Model vs seasonal-naive policy" />
+              <div className="divide-y divide-border">
+                {headline.map((row) => (
+                  <div key={row.label} className="flex items-center gap-3 px-5 py-4">
+                    <span className="grid size-9 place-items-center rounded-md bg-copper-50 text-primary">
+                      <row.icon className="size-4" />
+                    </span>
+                    <div>
+                      <p className="label-eyebrow">{row.label}</p>
+                      <p className="num text-xl font-semibold text-primary">{row.value}</p>
+                      <p className="text-xs text-muted-foreground">{row.note}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

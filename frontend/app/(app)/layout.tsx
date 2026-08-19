@@ -1,10 +1,9 @@
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
 import { apiClient } from "@/lib/api";
-import Sidebar from "@/components/nav/Sidebar";
+import { NavRail } from "@/components/app/nav-rail";
 import { CopilotProvider } from "@/components/copilot/CopilotProvider";
 import CopilotDock from "@/components/copilot/CopilotDock";
-import MainRegion from "@/components/copilot/MainRegion";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Real session (the middleware guarantees the user is authenticated to reach here).
@@ -23,10 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <SessionProvider session={session}>
       <CopilotProvider>
-        <div className="app-shell">
-          <Sidebar alertCount={alertCount} />
+        <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+          <NavRail alertCount={alertCount} />
           <CopilotDock />
-          <MainRegion>{children}</MainRegion>
+          <main className="flex min-w-0 flex-1 flex-col overflow-y-auto">{children}</main>
         </div>
       </CopilotProvider>
     </SessionProvider>

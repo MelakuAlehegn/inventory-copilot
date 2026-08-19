@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import TopBar from "@/components/nav/TopBar";
-import CopilotChat from "@/components/copilot/CopilotChat";
 import { Plus } from "lucide-react";
+import { TopBar } from "@/components/app/top-bar";
+import { Button } from "@/components/ui/button";
+import CopilotChat from "@/components/copilot/CopilotChat";
 
 function CopilotInner() {
   const searchParams = useSearchParams();
@@ -15,14 +16,16 @@ function CopilotInner() {
     <>
       <TopBar
         title="Copilot"
-        subtitle="Grounded agent — every number traces to a real tool output"
+        subtitle="Grounded answers · every number produced by a verified tool call"
         actions={
-          <button className="btn btn-primary btn-sm" onClick={() => setResetKey((k) => k + 1)} id="copilot-new-chat">
-            <Plus size={14} /> New Chat
-          </button>
+          <Button variant="outline" size="sm" onClick={() => setResetKey((k) => k + 1)} id="copilot-new-chat">
+            <Plus className="size-4" /> New chat
+          </Button>
         }
       />
-      <CopilotChat variant="full" initialQuery={initQ || undefined} resetKey={resetKey} />
+      <div className="flex min-h-0 flex-1">
+        <CopilotChat variant="full" initialQuery={initQ || undefined} resetKey={resetKey} />
+      </div>
     </>
   );
 }
