@@ -32,7 +32,7 @@ function MetricRow({ label, value, sub }: { label: string; value: React.ReactNod
 }
 
 export function ItemDrawer({ item, onClose }: Props) {
-  const { ask, setContext, resetContext } = useCopilot();
+  const { prefill, setContext, resetContext } = useCopilot();
   const handingOff = useRef(false);
 
   useEffect(() => {
@@ -70,7 +70,8 @@ export function ItemDrawer({ item, onClose }: Props) {
 
   const askCopilot = () => {
     handingOff.current = true;
-    ask(`Why is ${item.item_id} at store ${item.store_id} flagged as ${item.status}, and what should I do about it?`);
+    // Draft a question into the copilot input (grounded on this item); the user decides to send.
+    prefill(`Why is ${item.item_id} at store ${item.store_id} flagged as ${item.status}, and what should I do about it?`);
     onClose();
   };
 
@@ -142,7 +143,7 @@ export function ItemDrawer({ item, onClose }: Props) {
           <p className="label-eyebrow mb-1">Demand &amp; price</p>
           <div className="mb-5">
             <MetricRow label="Mean daily demand" value={item.mean_daily_demand.toFixed(2)} sub="Average units sold per day" />
-            <MetricRow label="Unit price" value={item.unit_price != null ? fmtCurrency(item.unit_price) : "—"} />
+            <MetricRow label="Unit price" value={item.unit_price != null ? fmtCurrency(item.unit_price) : "-"} />
           </div>
 
           <p className="label-eyebrow mb-1">Item info</p>

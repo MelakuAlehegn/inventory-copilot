@@ -125,15 +125,16 @@ export interface CopilotChatProps {
   context?: Record<string, string | number> | null;
   initialQuery?: string;
   resetKey?: number;
-  pendingAsk?: { text: string; nonce: number } | null;
+  /** A suggested question to drop into the input (with a nonce); fills the input, never auto-sends. */
+  pendingPrefill?: { text: string; nonce: number } | null;
 }
 
 /**
- * The complete chat engine — sessions, streaming, tool traces, input — rendered either as the
+ * The complete chat engine - sessions, streaming, tool traces, input - rendered either as the
  * full workspace (`/copilot`) or as a compact docked panel on any data page. One implementation
  * so both stay in lock-step. All numbers come from real tool calls (grounding guardrail).
  */
-export default function CopilotChat({ variant = "full", context, initialQuery, resetKey, pendingAsk }: CopilotChatProps) {
+export default function CopilotChat({ variant = "full", context, initialQuery, resetKey, pendingPrefill }: CopilotChatProps) {
   const { data: session } = useSession();
   const token = session?.backendToken;
   const isPanel = variant === "panel";
@@ -151,7 +152,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef   = useRef<HTMLTextAreaElement>(null);
   const sentInitial = useRef(false);
-  const lastAskNonce = useRef(0);
+  const lastPrefillNonce = useRef(0);
 
   useEffect(() => {
     if (!token || isPanel) return; // the panel keeps history out of the way
@@ -234,12 +235,14 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
 
+  // Drop a suggested question into the input (do not send) and focus it, once per new nonce.
   useEffect(() => {
-    if (pendingAsk && pendingAsk.nonce !== lastAskNonce.current) {
-      lastAskNonce.current = pendingAsk.nonce;
-      sendMessage(pendingAsk.text);
+    if (pendingPrefill && pendingPrefill.nonce !== lastPrefillNonce.current) {
+      lastPrefillNonce.current = pendingPrefill.nonce;
+      setInput(pendingPrefill.text);
+      taRef.current?.focus();
     }
-  }, [pendingAsk, sendMessage]);
+  }, [pendingPrefill]);
 
   const welcome = (
     <div className={isPanel ? "space-y-5" : "space-y-6"}>
@@ -247,7 +250,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
         <div>
           <h2 className="text-base font-semibold">Grounded inventory agent</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask about demand forecasts, inventory policy, and what-if scenarios. Every number is computed by a real tool — the agent never invents a figure.
+            Ask about demand forecasts, inventory policy, and what-if scenarios. Every number is computed by a real tool, so the agent never invents a figure.
           </p>
         </div>
       ) : null}
@@ -371,7 +374,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 px-1 text-[11px] text-muted-foreground">Grounding guardrail active — fabricated numbers are blocked.</p>
+              <p className="mt-3 px-1 text-[11px] text-muted-foreground">Grounding guardrail active; fabricated numbers are blocked.</p>
             </>
           ) : null}
         </div>

@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 /**
- * Chart colors resolved from the CSS design tokens. Recharts needs literal color strings
- * (it renders SVG), so we read the CSS variables at runtime instead of hardcoding hexes.
- * The hook re-reads on theme change (system preference or an explicit data-theme), so charts
- * follow light/dark mode automatically.
+ * Chart colors resolved from the CSS design tokens (tokens.css). Recharts needs literal color
+ * strings for SVG, so we read each token via a probe element - getComputedStyle resolves it to
+ * an rgb() string (recharts can't always paint raw oklch()). Re-reads on theme change, so charts
+ * follow light/dark automatically.
  */
 export interface ChartTokens {
   basestock: string;
@@ -25,44 +25,60 @@ export interface ChartTokens {
   textSecondary: string;
 }
 
-// Light-theme values, matching globals.css. Used for SSR/first paint and as fallbacks.
+// Light-theme fallbacks (used for SSR / first paint before the probe runs).
 const DEFAULTS: ChartTokens = {
-  basestock: "#A85820", // --cu-500
-  naive: "#9A9184",     // --tx-tertiary
-  actual: "#2A6B47",    // --ok-500
-  q50: "#A85820",       // --cu-500
-  q90: "#BE7038",       // --cu-400
-  q95: "#D29464",       // --cu-300
-  q99: "#E5BF99",       // --cu-200
-  grid: "#ECEAE4",      // --divider
-  axis: "#E2DDD5",      // --border
-  tick: "#9A9184",      // --tx-tertiary
-  cutoff: "#C5BFB4",    // --border-strong
-  surface: "#FFFFFF",   // --surface
-  border: "#E2DDD5",    // --border
-  textSecondary: "#5A5347", // --tx-secondary
+  basestock: "#A85820",
+  naive: "#9A9184",
+  actual: "#2A6B47",
+  q50: "#A85820",
+  q90: "#D29464",
+  q95: "#E5BF99",
+  q99: "#F4E2CC",
+  grid: "#E2DDD5",
+  axis: "#E2DDD5",
+  tick: "#9A9184",
+  cutoff: "#C5BFB4",
+  surface: "#FFFFFF",
+  border: "#E2DDD5",
+  textSecondary: "#5A5347",
+};
+
+// Which CSS custom property backs each chart color.
+const VARS: Record<keyof ChartTokens, string> = {
+  basestock: "--primary",
+  naive: "--muted-foreground",
+  actual: "--success",
+  q50: "--copper-500",
+  q90: "--copper-300",
+  q95: "--copper-200",
+  q99: "--copper-100",
+  grid: "--border",
+  axis: "--border",
+  tick: "--muted-foreground",
+  cutoff: "--muted-foreground",
+  surface: "--surface",
+  border: "--border",
+  textSecondary: "--muted-foreground",
 };
 
 function readTokens(): ChartTokens {
   if (typeof window === "undefined") return DEFAULTS;
-  const cs = getComputedStyle(document.documentElement);
-  const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
-  return {
-    basestock: v("--cu-500", DEFAULTS.basestock),
-    naive: v("--tx-tertiary", DEFAULTS.naive),
-    actual: v("--ok-500", DEFAULTS.actual),
-    q50: v("--cu-500", DEFAULTS.q50),
-    q90: v("--cu-400", DEFAULTS.q90),
-    q95: v("--cu-300", DEFAULTS.q95),
-    q99: v("--cu-200", DEFAULTS.q99),
-    grid: v("--divider", DEFAULTS.grid),
-    axis: v("--border", DEFAULTS.axis),
-    tick: v("--tx-tertiary", DEFAULTS.tick),
-    cutoff: v("--border-strong", DEFAULTS.cutoff),
-    surface: v("--surface", DEFAULTS.surface),
-    border: v("--border", DEFAULTS.border),
-    textSecondary: v("--tx-secondary", DEFAULTS.textSecondary),
+  // A hidden probe lets the browser resolve `var(--token)` (often oklch) down to rgb().
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  document.body.appendChild(probe);
+  const resolve = (cssVar: string, fallback: string) => {
+    probe.style.color = "";
+    probe.style.color = `var(${cssVar})`;
+    const rgb = getComputedStyle(probe).color;
+    return rgb || fallback;
   };
+  const out = {} as ChartTokens;
+  (Object.keys(VARS) as (keyof ChartTokens)[]).forEach((k) => {
+    out[k] = resolve(VARS[k], DEFAULTS[k]);
+  });
+  probe.remove();
+  return out;
 }
 
 export function useChartTokens(): ChartTokens {
@@ -70,11 +86,10 @@ export function useChartTokens(): ChartTokens {
 
   useEffect(() => {
     const update = () => setTokens(readTokens());
-    update(); // resolve real values once mounted
+    update();
 
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     mq.addEventListener("change", update);
-    // Re-read when an explicit theme is toggled on the root element.
     const obs = new MutationObserver(update);
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "class"] });
 

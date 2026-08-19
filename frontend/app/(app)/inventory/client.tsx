@@ -185,9 +185,9 @@ export default function InventoryClient() {
                           <td className="num px-4 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(r.reorder_point)}</td>
                           <td className="num px-4 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(r.safety_stock)}</td>
                           <td className="num px-4 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(r.order_up_to)}</td>
-                          <td className="num px-4 py-2.5 text-right text-[13px] font-semibold text-primary">{r.recommended_order_qty ? fmtNumber(r.recommended_order_qty) : "—"}</td>
+                          <td className="num px-4 py-2.5 text-right text-[13px] font-semibold text-primary">{r.recommended_order_qty ? fmtNumber(r.recommended_order_qty) : "-"}</td>
                           <td className="num px-4 py-2.5 text-right text-[13px] text-muted-foreground">{r.mean_daily_demand.toFixed(1)}</td>
-                          <td className="num px-4 py-2.5 text-right text-[13px]">{r.days_until_stockout != null ? `${Math.round(r.days_until_stockout)}d` : "—"}</td>
+                          <td className="num px-4 py-2.5 text-right text-[13px]">{r.days_until_stockout != null ? `${Math.round(r.days_until_stockout)}d` : "-"}</td>
                           <td className="px-4 py-2.5 text-right"><StatusChip status={r.status} /></td>
                         </tr>
                       ))}

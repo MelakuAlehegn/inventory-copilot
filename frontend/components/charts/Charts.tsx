@@ -142,7 +142,7 @@ function ForecastTooltip({ active, payload, label, tokens }: { active?: boolean;
       {payload.map((p) => (
         <div key={p.name} style={{ display: "flex", justifyContent: "space-between", gap: 16, color: p.color ?? tokens.textSecondary, marginBottom: 2 }}>
           <span style={{ fontSize: "0.75rem" }}>{p.name}</span>
-          <strong className="mono">{p.value?.toFixed(1) ?? "—"}</strong>
+          <strong className="mono">{p.value?.toFixed(1) ?? "-"}</strong>
         </div>
       ))}
     </div>

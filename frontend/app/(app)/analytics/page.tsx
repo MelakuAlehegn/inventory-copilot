@@ -79,7 +79,7 @@ export default async function AnalyticsPage() {
                         <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">{categoryOf(r.item_id)}</span>
                       </td>
                       <td className="num px-5 py-2 text-[13px] text-muted-foreground">{r.store_id}</td>
-                      <td className="num px-5 py-2 text-right text-[13px] font-semibold">{r.revenue != null ? fmtCurrency(r.revenue) : "—"}</td>
+                      <td className="num px-5 py-2 text-right text-[13px] font-semibold">{r.revenue != null ? fmtCurrency(r.revenue) : "-"}</td>
                       <td className="num px-5 py-2 text-right text-[13px] text-muted-foreground">{fmtNumber(r.units)}</td>
                     </tr>
                   ))}
@@ -105,9 +105,9 @@ export default async function AnalyticsPage() {
                   <td className="num px-5 py-2.5 text-[13px]">{r.store_id}</td>
                   <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">{fmt(r.n_series)}</td>
                   <td className="num px-5 py-2.5 text-right text-[13px]">{fmt(r.total_units)}</td>
-                  <td className="num px-5 py-2.5 text-right text-[13px] font-medium">{r.total_revenue != null ? fmtCurrency(r.total_revenue) : "—"}</td>
+                  <td className="num px-5 py-2.5 text-right text-[13px] font-medium">{r.total_revenue != null ? fmtCurrency(r.total_revenue) : "-"}</td>
                   <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">
-                    {r.total_revenue != null && r.n_series ? fmtCurrency(Math.round(r.total_revenue / r.n_series)) : "—"}
+                    {r.total_revenue != null && r.n_series ? fmtCurrency(Math.round(r.total_revenue / r.n_series)) : "-"}
                   </td>
                 </tr>
               ))}

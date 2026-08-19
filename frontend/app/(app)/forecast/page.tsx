@@ -7,7 +7,7 @@ import { ForecastChartWrapper } from "@/components/charts/ForecastChartWrapper";
 export const metadata = { title: "Forecast" };
 
 const quantileGuide = [
-  { q: "q50", title: "Median", body: "50% coverage. Minimum viable stock — expect stockouts on busy days." },
+  { q: "q50", title: "Median", body: "50% coverage. Minimum viable stock; expect stockouts on busy days." },
   { q: "q80", title: "80th pctile", body: "80% coverage. Moderate buffer for routine variance." },
   { q: "q90", title: "90th pctile", body: "90% coverage. A good starting point for most retail operations." },
   { q: "q95", title: "95th pctile", body: "Default operating point. Balances service level against carrying cost." },
@@ -107,7 +107,7 @@ export default async function ForecastPage() {
                         <td className="num px-4 py-2 text-right text-[13px] text-muted-foreground">{p.q95.toFixed(1)}</td>
                         <td className="num px-4 py-2 text-right text-[13px] text-muted-foreground">{p.q99.toFixed(1)}</td>
                         <td className="num px-4 py-2 text-right text-[13px] font-semibold">
-                          {p.actual != null ? p.actual.toFixed(1) : <span className="text-muted-foreground">—</span>}
+                          {p.actual != null ? p.actual.toFixed(1) : <span className="text-muted-foreground">-</span>}
                         </td>
                         <td className="px-4 py-2">
                           {p.actual != null ? (

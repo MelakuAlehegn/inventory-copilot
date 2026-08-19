@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { ParetoChartWrapper } from "@/components/charts/ParetoChartWrapper";
+import { loadPolicyDefaults } from "@/lib/prefs";
 
 const DEFAULTS: Required<ScenarioParams> = {
   policy: "base_stock",
@@ -104,6 +105,12 @@ export default function ScenariosPage() {
     api.getPareto().then(setPareto).catch(() => setPareto([]));
   }, [token]);
 
+  // Seed the builder from the saved policy defaults (Settings) on mount.
+  useEffect(() => {
+    const d = loadPolicyDefaults();
+    setParamsA((p) => ({ ...p, service_level: d.service_level, lead_time: d.lead_time, review_period: d.review_period }));
+  }, []);
+
   const setA = useCallback(<K extends keyof ScenarioParams>(k: K, v: ScenarioParams[K]) => setParamsA((p) => ({ ...p, [k]: v })), []);
   const setB = useCallback(<K extends keyof ScenarioParams>(k: K, v: ScenarioParams[K]) => setParamsB((p) => ({ ...p, [k]: v })), []);
 
@@ -144,8 +151,8 @@ export default function ScenariosPage() {
     if (!token) return;
     setError(null);
     try {
-      await apiClient(token).saveScenario(`A — ${nameFor(paramsA)}`, paramsA);
-      await apiClient(token).saveScenario(`B — ${nameFor(paramsB)}`, paramsB);
+      await apiClient(token).saveScenario(`A · ${nameFor(paramsA)}`, paramsA);
+      await apiClient(token).saveScenario(`B · ${nameFor(paramsB)}`, paramsB);
       setSaved(await apiClient(token).getScenarios());
     } catch { setError("Couldn't save scenarios."); }
   };
@@ -198,7 +205,7 @@ export default function ScenariosPage() {
 
   const ParetoPanel = (
     <Panel>
-      <PanelHeader title="Cost vs service level" subtitle={`Pareto frontier — ${policyLabel(paramsA.policy)} across service levels`} />
+      <PanelHeader title="Cost vs service level" subtitle={`Pareto frontier · ${policyLabel(paramsA.policy)} across service levels`} />
       {pareto.length ? (
         <ParetoChartWrapper data={pareto} policies={[paramsA.policy]} />
       ) : (
@@ -309,9 +316,9 @@ export default function ScenariosPage() {
                         return (
                           <tr key={m.key} className="border-b border-border last:border-0 hover:bg-surface-2">
                             <td className="px-5 py-2.5 text-[13px] text-muted-foreground">{m.label}</td>
-                            <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">{base != null ? m.fmt(base) : "—"}</td>
+                            <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">{base != null ? m.fmt(base) : "-"}</td>
                             <td className="num px-5 py-2.5 text-right text-[13px] font-semibold">{m.fmt(res)}</td>
-                            <td className="px-5 py-2.5 text-right">{base != null ? <Delta value={pct(res, base)} invert={m.lowerBetter} /> : "—"}</td>
+                            <td className="px-5 py-2.5 text-right">{base != null ? <Delta value={pct(res, base)} invert={m.lowerBetter} /> : "-"}</td>
                           </tr>
                         );
                       })}
@@ -420,14 +427,14 @@ export default function ScenariosPage() {
                           <td className="px-5 py-2.5 text-right">
                             <span className="inline-flex items-center justify-end gap-2">
                               {winner === "A" ? <Check className="size-3.5 text-success" /> : null}
-                              <span className="num text-[13px] font-semibold">{a != null ? m.fmt(a) : "—"}</span>
+                              <span className="num text-[13px] font-semibold">{a != null ? m.fmt(a) : "-"}</span>
                               {a != null && base != null ? <span className="w-12 text-right"><Delta value={pct(a, base)} invert={m.lowerBetter} /></span> : null}
                             </span>
                           </td>
                           <td className="px-5 py-2.5 text-right">
                             <span className="inline-flex items-center justify-end gap-2">
                               {winner === "B" ? <Check className="size-3.5 text-success" /> : null}
-                              <span className="num text-[13px] font-semibold">{b != null ? m.fmt(b) : "—"}</span>
+                              <span className="num text-[13px] font-semibold">{b != null ? m.fmt(b) : "-"}</span>
                               {b != null && base != null ? <span className="w-12 text-right"><Delta value={pct(b, base)} invert={m.lowerBetter} /></span> : null}
                             </span>
                           </td>

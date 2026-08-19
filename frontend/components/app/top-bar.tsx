@@ -2,9 +2,10 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Moon, Sparkles, Sun } from "lucide-react";
+import { Moon, Sparkles, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCopilot } from "@/components/copilot/CopilotProvider";
+import { NotificationBell } from "@/components/app/notification-bell";
 
 type Theme = "light" | "dark";
 
@@ -53,9 +54,7 @@ export function TopBar({
         <Button variant="ghost" size="icon" onClick={flipTheme} aria-label="Toggle theme">
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </Button>
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-          <Bell className="size-4" />
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   );

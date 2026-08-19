@@ -5,18 +5,18 @@ import { usePathname } from "next/navigation";
 
 export type CopilotContextData = Record<string, string | number>;
 
-/** A question to send into the panel, with a nonce so the same text can be re-sent. */
-export interface PendingAsk {
+/** Text to drop into the panel's input (with a nonce so the same text can be re-sent). */
+export interface PendingPrefill {
   text: string;
   nonce: number;
 }
 
 interface CopilotState {
   open: boolean;
-  /** What the copilot is currently grounded on — sent with every message. */
+  /** What the copilot is currently grounded on, sent with every message. */
   context: CopilotContextData;
-  /** The latest programmatic question, consumed by the docked chat. */
-  pendingAsk: PendingAsk | null;
+  /** The latest prefill request, consumed by the docked chat (fills the input, does not send). */
+  pendingPrefill: PendingPrefill | null;
   openPanel: () => void;
   closePanel: () => void;
   toggle: () => void;
@@ -24,8 +24,8 @@ interface CopilotState {
   setContext: (c: CopilotContextData) => void;
   /** Reset the context back to just the current page. */
   resetContext: () => void;
-  /** Open the panel and ask a specific question (e.g. "Why is this item critical?"). */
-  ask: (text: string) => void;
+  /** Open the panel and prefill the input with a suggested question (the user decides to send). */
+  prefill: (text: string) => void;
 }
 
 const CopilotCtx = createContext<CopilotState | null>(null);
@@ -40,7 +40,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [context, setContextState] = useState<CopilotContextData>({ page: pageName(pathname) });
-  const [pendingAsk, setPendingAsk] = useState<PendingAsk | null>(null);
+  const [pendingPrefill, setPendingPrefill] = useState<PendingPrefill | null>(null);
 
   // Reset to the baseline page context on navigation; pages enrich it afterwards.
   useEffect(() => {
@@ -58,14 +58,14 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     () => setContextState({ page: pageName(pathname) }),
     [pathname]
   );
-  const ask = useCallback((text: string) => {
+  const prefill = useCallback((text: string) => {
     setOpen(true);
-    setPendingAsk((prev) => ({ text, nonce: (prev?.nonce ?? 0) + 1 }));
+    setPendingPrefill((prev) => ({ text, nonce: (prev?.nonce ?? 0) + 1 }));
   }, []);
 
   return (
     <CopilotCtx.Provider
-      value={{ open, context, pendingAsk, openPanel, closePanel, toggle, setContext, resetContext, ask }}
+      value={{ open, context, pendingPrefill, openPanel, closePanel, toggle, setContext, resetContext, prefill }}
     >
       {children}
     </CopilotCtx.Provider>

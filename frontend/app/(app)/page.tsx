@@ -66,7 +66,7 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-3 text-sm">
               <AlertTriangle className="size-4 text-danger" />
               <p>
-                <span className="num font-semibold">{fmt(summary.critical)}</span> items critical — stockout imminent. Review the reorder queue.
+                <span className="num font-semibold">{fmt(summary.critical)}</span> items critical. Stockout imminent, review the reorder queue.
               </p>
             </div>
             <Button asChild size="sm" variant="destructive">
@@ -99,7 +99,7 @@ export default async function DashboardPage() {
               }
             />
             {critical.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-muted-foreground">No critical items — inventory is healthy.</p>
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">No critical items. Inventory is healthy.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
@@ -117,7 +117,7 @@ export default async function DashboardPage() {
                       <td className="num px-5 py-2.5 text-right text-[13px]">{fmtNumber(row.current_stock)}</td>
                       <td className="num px-5 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(row.reorder_point)}</td>
                       <td className="num px-5 py-2.5 text-right text-[13px] font-medium">
-                        {row.days_until_stockout != null ? `${Math.round(row.days_until_stockout)}d` : "—"}
+                        {row.days_until_stockout != null ? `${Math.round(row.days_until_stockout)}d` : "-"}
                       </td>
                       <td className="px-5 py-2.5 text-right">
                         <StatusChip status={row.status} />

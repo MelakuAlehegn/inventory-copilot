@@ -53,7 +53,7 @@ function toQuery(params: Record<string, string | number | undefined | null>): st
 /**
  * Create an API client bound to a single auth token. Every request sends
  * `Authorization: Bearer <token>` when a token is present. On a non-2xx
- * response the underlying fetch throws — callers handle loading/error state.
+ * response the underlying fetch throws - callers handle loading/error state.
  */
 export function apiClient(token?: string | null) {
   // Global, read-only results are static for the life of a backend run, so let Next's
@@ -130,7 +130,7 @@ export function apiClient(token?: string | null) {
 
     // ── Decisions ────────────────────────────────────────────────────────────
     comparePolicies(params: CompareParams = {}): Promise<CompareResult> {
-      // POST, but deterministic and global — cache by params (keyed distinctly from GETs).
+      // POST, but deterministic and global - cache by params (keyed distinctly from GETs).
       return cachedFetch<CompareResult>(`POST /decisions/compare:${JSON.stringify(params)}`, () =>
         request<CompareResult>("/decisions/compare", {
           method: "POST",

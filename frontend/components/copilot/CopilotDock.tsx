@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
  * workspace). Renders the real SSE-backed CopilotChat, grounded on the current page context.
  */
 export default function CopilotDock() {
-  const { open, context, pendingAsk, closePanel } = useCopilot();
+  const { open, context, pendingPrefill, closePanel } = useCopilot();
   const pathname = usePathname();
   if (pathname === "/copilot" || !open) return null;
 
@@ -30,7 +30,7 @@ export default function CopilotDock() {
         </Button>
       </div>
       <div className="min-h-0 flex-1">
-        <CopilotChat variant="panel" context={context} pendingAsk={pendingAsk} />
+        <CopilotChat variant="panel" context={context} pendingPrefill={pendingPrefill} />
       </div>
     </aside>
   );
