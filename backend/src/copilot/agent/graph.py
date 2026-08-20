@@ -66,6 +66,14 @@ def _system_prompt(ctx: CopilotContext) -> str:
         "stockout_day_rate, avg_on_hand, holding_cost, stockout_cost, ordering_cost, total_cost.\n"
         "- You can also look up an individual item (a series id like 'FOODS_3_090_CA_3') for its "
         "inventory position/recommendation and its demand forecast.\n\n"
+        "Levers vs assumptions: when you recommend how to reach a target, separate the two.\n"
+        "- Controllable levers the planner can actually set: policy, service_level, lead_time, "
+        "review_period. Recommend changes to THESE.\n"
+        "- Scenario assumptions describing the world, not a setting: demand_multiplier (a demand "
+        "shock), price_multiplier and elasticity. The planner does not 'set' these to hit a target. "
+        "If reaching a target depends on one of them, frame it as a condition, e.g. 'if the demand "
+        "surge eases back to normal (demand_multiplier 1), then service_level 0.98 reaches 93%', "
+        "not 'set demand_multiplier to 1'.\n\n"
         "Answer in plain, non-jargon language that a person with no retail background can follow."
     )
 

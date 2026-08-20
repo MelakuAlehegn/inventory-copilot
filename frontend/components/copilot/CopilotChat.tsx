@@ -216,6 +216,22 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, streamContent, steps, status]);
 
+  // In the docked panel, changing pages starts a fresh chat (the old one stays in that
+  // page's history). Skip the first mount so a prefilled question isn't wiped.
+  const panelPage = isPanel ? (context?.page ? String(context.page) : "") : "";
+  const prevPage = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isPanel) return;
+    if (prevPage.current === null) { prevPage.current = panelPage; return; }
+    if (prevPage.current !== panelPage) {
+      prevPage.current = panelPage;
+      setActiveId(null);
+      setMessages([]);
+      setInput("");
+      setHistoryOpen(false);
+    }
+  }, [panelPage, isPanel]);
+
   const sendMessage = useCallback(async (text: string) => {
     const msg = text.trim();
     if (!msg || streaming) return;

@@ -114,21 +114,60 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         return {"base_stock": _round(base), "naive": _round(naive), "delta_base_minus_naive": delta}
 
     @tool(parse_docstring=True)
-    def get_pareto_curve(service_levels: list[float] | None = None) -> list[dict]:
+    def get_pareto_curve(
+        service_levels: list[float] | None = None,
+        lead_time: int = 7,
+        review_period: int = 7,
+        demand_multiplier: float = 1.0,
+        price_multiplier: float = 1.0,
+        elasticity: float = 0.0,
+    ) -> list[dict]:
         """Sweep service levels to trace the service-vs-cost trade-off for both policies.
 
         Returns one row per (service_level, policy) with fill_rate and the cost metrics,
         so you can see how each policy trades service for cost across operating points.
 
+        IMPORTANT: the defaults describe normal conditions. If the user is asking about an
+        active what-if scenario (e.g. a demand shock or a non-default lead/review time), pass
+        that scenario's lead_time, review_period, demand_multiplier, price_multiplier and
+        elasticity so the sweep reflects THOSE conditions. Otherwise the fill rates will be
+        the baseline ones and will not match what the user sees for their scenario.
+
         Args:
             service_levels: list of targets 0-1 to evaluate. Defaults to
                 [0.90, 0.95, 0.98, 0.99] if not given.
+            lead_time: days until a placed order arrives.
+            review_period: days between order reviews.
+            demand_multiplier: scales ACTUAL demand vs the plan (>1 is a spike).
+            price_multiplier: scales unit price (affects cost; demand too if elasticity set).
+            elasticity: price elasticity of demand (usually negative; 0 = no price->demand link).
         """
         levels = service_levels or [0.90, 0.95, 0.98, 0.99]
-        curve = service_cost_curve(
-            ctx.forecast, ctx.history, ctx.actuals, ctx.prices, ctx.cutoff, levels
+        baseline = (
+            lead_time == 7 and review_period == 7 and demand_multiplier == 1.0
+            and price_multiplier == 1.0 and elasticity == 0.0
         )
-        return [_round(row) for row in curve.to_dicts()]
+        if baseline:
+            curve = service_cost_curve(
+                ctx.forecast, ctx.history, ctx.actuals, ctx.prices, ctx.cutoff, levels
+            )
+            return [_round(row) for row in curve.to_dicts()]
+        # Scenario-aware: re-run the simulation at each service level under the given
+        # conditions (so a demand shock etc. is reflected, matching what the user runs).
+        rows: list[dict] = []
+        for sl in levels:
+            common = dict(
+                lead_time=lead_time, review_period=review_period, service_level=sl,
+                demand_multiplier=demand_multiplier, price_multiplier=price_multiplier,
+                elasticity=elasticity,
+            )
+            for policy in ("base_stock", "naive"):
+                metrics = run_scenario(
+                    Scenario(policy=policy, **common), ctx.actuals, ctx.prices, ctx.cutoff,
+                    forecast=ctx.forecast, history=ctx.history,
+                )
+                rows.append({"service_level": sl, "policy": policy, **_round(metrics)})
+        return rows
 
     # Per-item tools look up precomputed whole-dataset tables (built once, on first use, and
     # cached). This is fast and deterministic — unlike recomputing a single series per call.
