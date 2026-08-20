@@ -13,7 +13,7 @@ from collections.abc import AsyncIterator, Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -128,7 +128,12 @@ async def chat_stream(
         if chat is None or chat.user_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")
     else:
-        chat = ChatSession(user_id=user.id, title=body.message[:60])
+        page = (body.context or {}).get("page")
+        chat = ChatSession(
+            user_id=user.id,
+            title=body.message[:60],
+            page=str(page) if page is not None else None,
+        )
         session.add(chat)
         await session.flush()  # assign chat.id
 
@@ -150,15 +155,16 @@ async def chat_stream(
 
 @router.get("/sessions", response_model=list[ChatSessionResponse])
 async def list_sessions(
-    user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
+    page: str | None = None,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
-    rows = (
-        await session.execute(
-            select(ChatSession)
-            .where(ChatSession.user_id == user.id)
-            .order_by(ChatSession.created_at.desc())
-        )
-    ).scalars().all()
+    """List the user's chat sessions, newest first. Filter by origin page when given."""
+    query = select(ChatSession).where(ChatSession.user_id == user.id)
+    if page:
+        query = query.where(ChatSession.page == page)
+    query = query.order_by(ChatSession.created_at.desc())
+    rows = (await session.execute(query)).scalars().all()
     return rows
 
 
@@ -177,3 +183,27 @@ async def get_messages(
         )
     ).scalars().all()
     return rows
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete one chat session (its messages cascade)."""
+    chat = await session.get(ChatSession, session_id)
+    if chat is None or chat.user_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")
+    await session.delete(chat)
+    await session.commit()
+
+
+@router.delete("/sessions", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_sessions(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Delete all of the current user's chat sessions (messages cascade via FK)."""
+    await session.execute(delete(ChatSession).where(ChatSession.user_id == user.id))
+    await session.commit()

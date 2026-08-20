@@ -57,6 +57,7 @@ class ChatSession(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str | None]
+    page: Mapped[str | None] = mapped_column(index=True)  # origin page (dashboard, scenarios, ...)
 
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.id"

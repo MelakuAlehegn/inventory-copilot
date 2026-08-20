@@ -75,7 +75,7 @@ export function NotificationBell() {
                   <ul className="max-h-80 divide-y divide-border overflow-y-auto">
                     {items.map((it) => (
                       <li key={it.unique_id}>
-                        <Link href="/inventory?status=critical" onClick={() => setOpen(false)} className="flex items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-surface-2">
+                        <Link href={`/inventory?status=critical&open=${encodeURIComponent(it.unique_id)}`} onClick={() => setOpen(false)} className="flex items-start gap-2.5 px-4 py-2.5 transition-colors hover:bg-surface-2">
                           <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-danger" />
                           <span className="min-w-0 flex-1">
                             <span className="num block truncate text-[13px] font-medium">{it.item_id} · {it.store_id}</span>

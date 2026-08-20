@@ -8,6 +8,7 @@ import { Panel, PanelHeader } from "@/components/app/primitives";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ForecastChartWrapper } from "@/components/charts/ForecastChartWrapper";
 import { SetCopilotContext } from "@/components/copilot/SetCopilotContext";
+import { ExportCsvButton } from "@/components/app/export-csv-button";
 
 const quantileGuide = [
   { q: "q50", title: "Median", body: "50% coverage. Minimum viable stock; expect stockouts on busy days." },
@@ -105,7 +106,11 @@ export function ForecastSeriesPanel({
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.5fr_1fr]">
         <Panel>
-          <PanelHeader title="Raw quantile data" subtitle="First 14 days · actuals vs q90 coverage" />
+          <PanelHeader
+            title="Raw quantile data"
+            subtitle="First 14 days · actuals vs q90 coverage"
+            action={<ExportCsvButton filename={`forecast_${uid}`} rows={points.map((p) => ({ ...p }))} />}
+          />
           <div className="max-h-[420px] overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-surface">

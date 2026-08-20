@@ -23,7 +23,7 @@ function CopilotInner() {
           </Button>
         }
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <CopilotChat variant="full" initialQuery={initQ || undefined} resetKey={resetKey} />
       </div>
     </>

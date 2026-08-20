@@ -181,12 +181,20 @@ export function apiClient(token?: string | null) {
     },
 
     // ── Chat ───────────────────────────────────────────────────────────────────
-    getChatSessions(): Promise<ChatSession[]> {
-      return request<ChatSession[]>("/chat/sessions");
+    getChatSessions(page?: string): Promise<ChatSession[]> {
+      return request<ChatSession[]>(`/chat/sessions${toQuery({ page })}`);
     },
 
     getMessages(sessionId: string): Promise<ChatMessage[]> {
       return request<ChatMessage[]>(`/chat/sessions/${sessionId}/messages`);
+    },
+
+    deleteChatSession(sessionId: string): Promise<void> {
+      return request<void>(`/chat/sessions/${sessionId}`, { method: "DELETE" });
+    },
+
+    clearChatSessions(): Promise<void> {
+      return request<void>("/chat/sessions", { method: "DELETE" });
     },
 
     async *streamChatFetch(

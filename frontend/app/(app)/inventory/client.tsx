@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ItemDrawer } from "@/components/inventory/ItemDrawer";
+import { ExportCsvButton } from "@/components/app/export-csv-button";
 
 const PAGE_SIZES = [25, 50, 100, 200];
 
@@ -28,6 +29,7 @@ const TABS: { key: InventoryStatus | ""; label: string }[] = [
 export default function InventoryClient() {
   const searchParams = useSearchParams();
   const initStatus = (searchParams.get("status") as InventoryStatus | null) ?? "";
+  const initOpen = searchParams.get("open");
   const { data: session } = useSession();
   const token = session?.backendToken;
 
@@ -52,6 +54,14 @@ export default function InventoryClient() {
   }, [token]);
 
   useEffect(() => { setPage(0); }, [status, store, search, pageSize]);
+
+  // Arriving from a notification alert (?open=<unique_id>): fetch that item and open its drawer.
+  useEffect(() => {
+    if (!initOpen || !token) return;
+    apiClient(token).getInventory({ search: initOpen, limit: 1 })
+      .then((rows) => { if (rows[0]) setSelected(rows[0]); })
+      .catch(() => {});
+  }, [initOpen, token]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -88,15 +98,25 @@ export default function InventoryClient() {
   const rangeStart = items.length ? page * pageSize + 1 : 0;
   const rangeEnd = page * pageSize + items.length;
 
+  const csvRows = items.map((i) => ({
+    item: i.item_id, store: i.store_id, stock: i.current_stock, reorder_point: i.reorder_point,
+    safety_stock: i.safety_stock, order_up_to: i.order_up_to, recommended_order: i.recommended_order_qty,
+    mean_daily: i.mean_daily_demand, days_left: i.days_until_stockout ?? "", unit_price: i.unit_price ?? "",
+    status: i.status,
+  }));
+
   return (
     <>
       <TopBar
         title="Inventory"
         subtitle="Base-stock policy · reorder point, safety stock and recommended orders"
         actions={
-          <Button size="sm" onClick={() => load()} className="gap-1.5" id="inv-run-policy">
-            <RefreshCw className="size-3.5" /> Refresh
-          </Button>
+          <>
+            <ExportCsvButton filename="inventory" rows={csvRows} label="Export" />
+            <Button size="sm" onClick={() => load()} className="gap-1.5" id="inv-run-policy">
+              <RefreshCw className="size-3.5" /> Refresh
+            </Button>
+          </>
         }
       />
 

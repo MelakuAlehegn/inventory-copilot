@@ -173,6 +173,7 @@ export interface StoreMetrics {
 export interface ChatSession {
   id: string;
   title: string | null;
+  page: string | null;
   created_at: string;
 }
 

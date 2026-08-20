@@ -21,6 +21,7 @@ class ChatSessionResponse(BaseModel):
 
     id: uuid.UUID
     title: str | None
+    page: str | None
     created_at: datetime
 
 

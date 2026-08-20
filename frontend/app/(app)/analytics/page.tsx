@@ -4,6 +4,7 @@ import { fmtCurrency, fmtNumber } from "@/lib/utils";
 import { TopBar } from "@/components/app/top-bar";
 import { Kpi, KpiStrip, Panel, PanelHeader, fmt } from "@/components/app/primitives";
 import { StoreBarChart } from "@/components/charts/StoreBarChart";
+import { ExportCsvButton } from "@/components/app/export-csv-button";
 
 export const metadata = { title: "Analytics" };
 
@@ -61,7 +62,11 @@ export default async function AnalyticsPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Top series by revenue" subtitle="Highest revenue across item × store" />
+            <PanelHeader
+              title="Top series by revenue"
+              subtitle="Highest revenue across item × store"
+              action={<ExportCsvButton filename="top-series" rows={topItems.map((r) => ({ item: r.item_id, category: categoryOf(r.item_id), store: r.store_id, revenue: r.revenue ?? "", units: r.units }))} />}
+            />
             <div className="max-h-[344px] overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-surface">
@@ -90,7 +95,11 @@ export default async function AnalyticsPage() {
         </div>
 
         <Panel>
-          <PanelHeader title="Store breakdown" subtitle="Units, revenue and series count per location" />
+          <PanelHeader
+            title="Store breakdown"
+            subtitle="Units, revenue and series count per location"
+            action={<ExportCsvButton filename="store-breakdown" rows={sortedStores.map((r) => ({ store: r.store_id, series: r.n_series, units: r.total_units, revenue: r.total_revenue ?? "" }))} />}
+          />
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left">

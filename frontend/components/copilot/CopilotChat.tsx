@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { useSession } from "next-auth/react";
 import { apiClient } from "@/lib/api";
 import type { ChatSession, ChatMessage, ToolCallTrace } from "@/lib/types";
-import { Send, Terminal, Check, Loader2, MessageSquare, ChevronDown } from "lucide-react";
+import { Send, Terminal, Check, Loader2, MessageSquare, ChevronDown, Plus, History, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Modal } from "@/components/app/modal";
 
 const SUGGESTIONS = [
   "Compare base-stock vs naive at 95% service level",
@@ -120,6 +121,21 @@ function StreamingMsg({ content, steps, status }: { content: string; steps: Agen
   );
 }
 
+/** Reveal already-verified answer text progressively (~0.6s total, length-independent). */
+function typeOut(text: string, set: (s: string) => void): Promise<void> {
+  return new Promise((resolve) => {
+    const step = Math.max(2, Math.ceil(text.length / 40));
+    let i = 0;
+    const tick = () => {
+      i = Math.min(text.length, i + step);
+      set(text.slice(0, i));
+      if (i >= text.length) resolve();
+      else setTimeout(tick, 16);
+    };
+    tick();
+  });
+}
+
 export interface CopilotChatProps {
   variant?: "full" | "panel";
   context?: Record<string, string | number> | null;
@@ -148,16 +164,53 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [status, setStatus] = useState("");
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false); // panel: show the history list
+  const [pendingDelete, setPendingDelete] = useState<{ kind: "one"; id: string; title: string } | { kind: "all" } | null>(null);
 
   const msgsRef = useRef<HTMLDivElement>(null);
   const taRef   = useRef<HTMLTextAreaElement>(null);
   const sentInitial = useRef(false);
   const lastPrefillNonce = useRef(0);
 
-  useEffect(() => {
-    if (!token || isPanel) return; // the panel keeps history out of the way
-    apiClient(token).getChatSessions().then(setSessions).catch(() => setSessions([]));
-  }, [token, isPanel]);
+  // The docked panel shows history for the current page only; the full workspace shows all.
+  const pageFilter = isPanel ? (context?.page ? String(context.page) : undefined) : undefined;
+
+  const refreshSessions = useCallback(() => {
+    if (!token) return;
+    apiClient(token).getChatSessions(pageFilter).then(setSessions).catch(() => setSessions([]));
+  }, [token, pageFilter]);
+
+  useEffect(() => { refreshSessions(); }, [refreshSessions]);
+
+  const loadSession = (id: string) => {
+    setActiveId(id);
+    setHistoryOpen(false);
+    if (token) apiClient(token).getMessages(id).then(setMessages).catch(() => setMessages([]));
+  };
+
+  const newChat = () => {
+    setActiveId(null);
+    setMessages([]);
+    setInput("");
+    setHistoryOpen(false);
+  };
+
+  const runDelete = async () => {
+    if (!token || !pendingDelete) return;
+    const target = pendingDelete;
+    setPendingDelete(null);
+    try {
+      if (target.kind === "one") {
+        await apiClient(token).deleteChatSession(target.id);
+        setSessions((prev) => prev.filter((s) => s.id !== target.id));
+        if (activeId === target.id) newChat();
+      } else {
+        await apiClient(token).clearChatSessions();
+        setSessions([]);
+        newChat();
+      }
+    } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
@@ -176,6 +229,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setStatus("");
 
     let fullContent = "";
+    let sessionId = activeId; // capture the session the backend used/created
     const trajectory: AgentStep[] = [];
 
     try {
@@ -192,16 +246,20 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
           if (pending) { pending.done = true; pending.summary = raw.summary; }
           setSteps([...trajectory]);
         } else if (event.type === "message") {
-          try { fullContent = (JSON.parse(event.data) as { content?: string }).content ?? ""; }
-          catch { fullContent = event.data; }
+          try {
+            const parsed = JSON.parse(event.data) as { content?: string; session_id?: string };
+            fullContent = parsed.content ?? "";
+            if (parsed.session_id) sessionId = parsed.session_id;
+          } catch { fullContent = event.data; }
           setStatus("");
-          setStreamContent(fullContent);
         }
       }
     } catch {
       fullContent = "Sorry, I couldn't reach the backend. Please check your connection.";
-      setStreamContent(fullContent);
     }
+
+    // Reveal the verified answer progressively (grounding runs server-side before we get here).
+    if (fullContent) await typeOut(fullContent, setStreamContent);
 
     trajectory.forEach((s) => { s.done = true; });
     const assistantMsg: ChatMessage = {
@@ -216,7 +274,12 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setStreamContent("");
     setSteps([]);
     setStatus("");
-  }, [activeId, token, streaming, context]);
+
+    // Keep sending to the same session (so a conversation is one history entry, not one per
+    // message), and refresh the history list so the new/updated chat shows up.
+    if (sessionId && sessionId !== activeId) setActiveId(sessionId);
+    refreshSessions();
+  }, [activeId, token, streaming, context, refreshSessions]);
 
   useEffect(() => {
     if (initialQuery && !sentInitial.current) {
@@ -281,80 +344,131 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   );
 
   const composer = (
-    <div className={cn("border-t border-border bg-surface", isPanel ? "p-2.5" : "p-3")}>
-      <div className="relative">
-        <Textarea
-          ref={taRef}
-          rows={isPanel ? 2 : 3}
-          placeholder="Ask about inventory, forecasts, what-if scenarios…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
-          }}
-          disabled={streaming}
-          className="resize-none bg-surface-2 pr-12 text-sm"
-          id="copilot-input"
-        />
-        <Button
-          size="icon"
-          className="absolute bottom-2 right-2 size-8"
-          onClick={() => sendMessage(input)}
-          disabled={!input.trim() || streaming}
-          aria-label="Send"
-          id="copilot-send"
-        >
-          {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-        </Button>
+    <div className={cn("shrink-0 border-t border-border bg-surface", isPanel ? "p-2.5" : "p-3")}>
+      <div className={isPanel ? "" : "mx-auto max-w-3xl"}>
+        <div className="relative">
+          <Textarea
+            ref={taRef}
+            rows={isPanel ? 2 : 3}
+            placeholder="Ask about inventory, forecasts, what-if scenarios…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
+            }}
+            disabled={streaming}
+            className="resize-none bg-surface-2 pr-12 text-sm"
+            id="copilot-input"
+          />
+          <Button
+            size="icon"
+            className="absolute bottom-2 right-2 size-8"
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || streaming}
+            aria-label="Send"
+            id="copilot-send"
+          >
+            {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </Button>
+        </div>
+        {!isPanel ? (
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Press <span className="num rounded border border-border px-1">Enter</span> to send ·{" "}
+            <span className="num rounded border border-border px-1">Shift+Enter</span> for newline
+          </p>
+        ) : null}
       </div>
-      {!isPanel ? (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          Press <span className="num rounded border border-border px-1">Enter</span> to send ·{" "}
-          <span className="num rounded border border-border px-1">Shift+Enter</span> for newline
-        </p>
-      ) : null}
     </div>
+  );
+
+  const historyList = (
+    <div>
+      <div className="flex items-center justify-between px-1 pb-2">
+        <span className="label-eyebrow">History</span>
+        {sessions.length > 0 ? (
+          <button onClick={() => setPendingDelete({ kind: "all" })} className="text-[11px] text-muted-foreground transition-colors hover:text-danger">
+            Clear all
+          </button>
+        ) : null}
+      </div>
+      <ul className="space-y-0.5">
+        {sessions.map((s) => (
+          <li
+            key={s.id}
+            className={cn("group flex items-center gap-1 rounded-md transition-colors hover:bg-secondary", activeId === s.id && "bg-copper-50")}
+          >
+            <button
+              onClick={() => loadSession(s.id)}
+              className={cn(
+                "flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-2 text-left text-xs",
+                activeId === s.id ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+              )}
+            >
+              <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
+              <span className="min-w-0">
+                <span className="block truncate">{s.title ?? "Untitled conversation"}</span>
+                <span className="num text-[10px] opacity-70">{new Date(s.created_at).toLocaleDateString()}</span>
+              </span>
+            </button>
+            <button
+              onClick={() => setPendingDelete({ kind: "one", id: s.id, title: s.title ?? "Untitled conversation" })}
+              className="mr-1 shrink-0 rounded p-1 text-muted-foreground opacity-0 transition hover:text-danger group-hover:opacity-100"
+              aria-label="Delete chat"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </li>
+        ))}
+        {sessions.length === 0 ? <li className="px-2 py-4 text-center text-[11px] text-muted-foreground">No conversations yet</li> : null}
+      </ul>
+    </div>
+  );
+
+  const deleteModal = (
+    <Modal open={!!pendingDelete} onClose={() => setPendingDelete(null)}>
+      <h2 className="text-base font-semibold">{pendingDelete?.kind === "all" ? "Clear all history?" : "Delete chat?"}</h2>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        {pendingDelete?.kind === "all"
+          ? "All of these conversations will be permanently removed."
+          : `"${pendingDelete?.kind === "one" ? pendingDelete.title : ""}" will be permanently removed.`}
+      </p>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => setPendingDelete(null)}>Cancel</Button>
+        <Button variant="destructive" size="sm" onClick={runDelete}>Delete</Button>
+      </div>
+    </Modal>
   );
 
   if (isPanel) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">{conversation}</div>
-        {composer}
+        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+          <button onClick={newChat} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+            <Plus className="size-3.5" /> New
+          </button>
+          <button
+            onClick={() => setHistoryOpen((v) => !v)}
+            className={cn("flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors", historyOpen ? "bg-copper-50 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground")}
+            aria-pressed={historyOpen}
+          >
+            <History className="size-3.5" /> History
+          </button>
+        </div>
+        <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">
+          {historyOpen ? <div className="p-3">{historyList}</div> : conversation}
+        </div>
+        {historyOpen ? null : composer}
+        {deleteModal}
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-0">
+      {deleteModal}
       {/* History + tools rail */}
       <aside className="hidden w-[240px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-surface px-4 py-5 xl:flex">
-        <div>
-          <p className="label-eyebrow px-1 pb-2">History</p>
-          <ul className="space-y-0.5">
-            {sessions.map((s) => (
-              <li key={s.id}>
-                <button
-                  onClick={() => {
-                    setActiveId(s.id);
-                    if (token) apiClient(token).getMessages(s.id).then(setMessages).catch(() => setMessages([]));
-                  }}
-                  className={cn(
-                    "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition-colors",
-                    activeId === s.id ? "bg-copper-50 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  )}
-                >
-                  <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
-                  <span className="min-w-0">
-                    <span className="block truncate">{s.title ?? "Untitled conversation"}</span>
-                    <span className="num text-[10px] opacity-70">{new Date(s.created_at).toLocaleDateString()}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-            {sessions.length === 0 ? <li className="px-2 py-4 text-center text-[11px] text-muted-foreground">No conversations yet</li> : null}
-          </ul>
-        </div>
+        <div>{historyList}</div>
         <div>
           <button
             onClick={() => setToolsOpen((v) => !v)}
@@ -381,11 +495,11 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       </aside>
 
       {/* Conversation + composer */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl">{conversation}</div>
         </div>
-        <div className="mx-auto w-full max-w-3xl">{composer}</div>
+        {composer}
       </div>
     </div>
   );
