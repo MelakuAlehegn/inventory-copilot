@@ -15,7 +15,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 
 # Matches ints/decimals with optional thousands commas, sign, and trailing percent.
 _NUM_RE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?%?")
@@ -99,6 +105,12 @@ def grounded_numbers(messages: list[AnyMessage]) -> list[float]:
     seen_first_human = False
     for m in messages:
         if isinstance(m, ToolMessage):
+            numbers += _numbers_in(_content_str(m))
+        elif isinstance(m, SystemMessage):
+            # The only SystemMessage carried in the conversation state is the page-context
+            # note (what the user is viewing). Its numbers are real, tool-computed state the
+            # frontend already ran (e.g. the fill rate shown on screen), so the agent is
+            # allowed to quote them without re-running the tool here.
             numbers += _numbers_in(_content_str(m))
         elif isinstance(m, HumanMessage):
             if not seen_first_human:  # the real question; skip any injected corrections

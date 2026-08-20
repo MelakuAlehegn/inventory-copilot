@@ -74,6 +74,18 @@ def _system_prompt(ctx: CopilotContext) -> str:
         "If reaching a target depends on one of them, frame it as a condition, e.g. 'if the demand "
         "surge eases back to normal (demand_multiplier 1), then service_level 0.98 reaches 93%', "
         "not 'set demand_multiplier to 1'.\n\n"
+        "Scenario snapshot: on the scenarios page the context may carry a 'shown_' snapshot — "
+        "the parameters (shown_policy, shown_service_level, shown_lead_time, shown_review_period, "
+        "shown_demand_multiplier, shown_price_multiplier, shown_elasticity) and the resulting "
+        "metrics (shown_fill_rate, shown_total_cost, shown_stockout_units, and so on) of the "
+        "scenario the user has ALREADY RUN and is looking at on screen. When they ask about 'this "
+        "scenario' or the current result, explain those shown_ numbers directly — do NOT call "
+        "run_what_if again just to reproduce a result you already have. Call a tool only when the "
+        "user asks about a DIFFERENT setting than the shown one, or wants something the snapshot "
+        "doesn't include (a service-level sweep, a policy comparison, an item lookup). If "
+        "sliders_changed_since_run is 'yes', the on-screen numbers came from the shown_ parameters, "
+        "not the current slider positions; explain the shown result, and if the user seems to mean "
+        "the new slider values, note that they haven't run that yet.\n\n"
         "Answer in plain, non-jargon language that a person with no retail background can follow."
     )
 

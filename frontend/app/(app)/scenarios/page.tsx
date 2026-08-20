@@ -14,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { ParetoChartWrapper } from "@/components/charts/ParetoChartWrapper";
 import { SetCopilotContext } from "@/components/copilot/SetCopilotContext";
+import type { CopilotContextData } from "@/components/copilot/CopilotProvider";
 import { loadPolicyDefaults } from "@/lib/prefs";
 
 const DEFAULTS: Required<ScenarioParams> = {
@@ -84,6 +85,10 @@ export default function ScenariosPage() {
   const [paramsB, setParamsB] = useState<Required<ScenarioParams>>({ ...DEFAULTS, service_level: 0.99, demand_multiplier: 1.3 });
   const [resultA, setResultA] = useState<PolicyMetrics | null>(null);
   const [resultB, setResultB] = useState<PolicyMetrics | null>(null);
+  // Snapshot of the params + result the user actually ran for scenario A. The copilot is
+  // grounded on THIS (the result on screen), not on the live sliders, so it explains what the
+  // user sees instead of silently re-simulating whatever the sliders currently say.
+  const [lastRunA, setLastRunA] = useState<{ params: Required<ScenarioParams>; result: PolicyMetrics } | null>(null);
   const [loadingA, setLoadingA] = useState(false);
   const [loadingB, setLoadingB] = useState(false);
   const [mode, setMode] = useState<"single" | "compare">("single");
@@ -118,7 +123,11 @@ export default function ScenariosPage() {
   const runA = async () => {
     if (!token) return;
     setLoadingA(true); setError(null);
-    try { setResultA(await apiClient(token).runWhatIf(paramsA)); }
+    try {
+      const result = await apiClient(token).runWhatIf(paramsA);
+      setResultA(result);
+      setLastRunA({ params: paramsA, result });
+    }
     catch { setError("Couldn't run scenario A."); }
     finally { setLoadingA(false); }
   };
@@ -163,7 +172,11 @@ export default function ScenariosPage() {
     if (!token) return;
     const p = { ...DEFAULTS, ...s.params } as Required<ScenarioParams>;
     setParamsA(p); setMode("single"); setLoadingA(true); setError(null);
-    try { setResultA(await apiClient(token).runWhatIf(p)); }
+    try {
+      const result = await apiClient(token).runWhatIf(p);
+      setResultA(result);
+      setLastRunA({ params: p, result });
+    }
     catch { setError("Couldn't run scenario."); }
     finally { setLoadingA(false); }
   };
@@ -177,6 +190,37 @@ export default function ScenariosPage() {
   };
 
   const pct = (a: number, b: number | null) => (b ? ((a - b) / b) * 100 : 0);
+
+  // What the copilot is grounded on: the scenario A result the user has RUN and is looking at,
+  // not the live sliders. Includes a drift flag so the agent knows if the sliders have moved
+  // since that result was produced. Before any run, it just knows nothing has been run yet.
+  const scenarioContext: CopilotContextData = lastRunA
+    ? (() => {
+        const { params: p, result: r } = lastRunA;
+        const r4 = (n: number) => Math.round(n * 10000) / 10000;
+        const r2 = (n: number) => Math.round(n * 100) / 100;
+        const changed = JSON.stringify(p) !== JSON.stringify(paramsA);
+        return {
+          page: "scenarios",
+          shown_policy: p.policy,
+          shown_service_level: p.service_level,
+          shown_lead_time: p.lead_time,
+          shown_review_period: p.review_period,
+          shown_demand_multiplier: p.demand_multiplier,
+          shown_price_multiplier: p.price_multiplier,
+          shown_elasticity: p.elasticity,
+          shown_fill_rate: r4(r.fill_rate),
+          shown_stockout_units: Math.round(r.stockout_units),
+          shown_stockout_day_rate: r4(r.stockout_day_rate),
+          shown_avg_on_hand: r2(r.avg_on_hand),
+          shown_holding_cost: Math.round(r.holding_cost),
+          shown_stockout_cost: Math.round(r.stockout_cost),
+          shown_ordering_cost: Math.round(r.ordering_cost),
+          shown_total_cost: Math.round(r.total_cost),
+          sliders_changed_since_run: changed ? "yes" : "no",
+        };
+      })()
+    : { page: "scenarios", scenario_status: "no scenario has been run yet" };
 
   const SavedPanel = (
     <Panel>
@@ -217,7 +261,7 @@ export default function ScenariosPage() {
 
   return (
     <>
-      <SetCopilotContext context={{ page: "scenarios", policy: paramsA.policy, service_level: paramsA.service_level, lead_time: paramsA.lead_time, review_period: paramsA.review_period, demand_multiplier: paramsA.demand_multiplier, price_multiplier: paramsA.price_multiplier, elasticity: paramsA.elasticity }} />
+      <SetCopilotContext context={scenarioContext} />
       <TopBar
         title="Scenarios"
         subtitle="Deterministic what-if simulation · the copilot explains the results"
@@ -247,7 +291,7 @@ export default function ScenariosPage() {
               <Panel>
                 <PanelHeader
                   title="Parameters"
-                  action={<Button variant="ghost" size="sm" onClick={() => { setParamsA(DEFAULTS); setResultA(null); }}><RotateCcw className="size-3.5" /> Reset</Button>}
+                  action={<Button variant="ghost" size="sm" onClick={() => { setParamsA(DEFAULTS); setResultA(null); setLastRunA(null); }}><RotateCcw className="size-3.5" /> Reset</Button>}
                 />
                 <div className="px-5 py-4">
                   <span className="label-eyebrow">Policy</span>
