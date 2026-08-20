@@ -480,7 +480,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 w-full min-w-0">
       {deleteModal}
       {/* History + tools rail */}
       <aside className="hidden w-[240px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-border bg-surface px-4 py-5 xl:flex">
@@ -511,7 +511,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       </aside>
 
       {/* Conversation + composer */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div ref={msgsRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl">{conversation}</div>
         </div>
