@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { ParetoChartWrapper } from "@/components/charts/ParetoChartWrapper";
+import { SetCopilotContext } from "@/components/copilot/SetCopilotContext";
 import { loadPolicyDefaults } from "@/lib/prefs";
 
 const DEFAULTS: Required<ScenarioParams> = {
@@ -216,6 +217,7 @@ export default function ScenariosPage() {
 
   return (
     <>
+      <SetCopilotContext context={{ page: "scenarios", policy: paramsA.policy, service_level: paramsA.service_level, lead_time: paramsA.lead_time, demand_multiplier: paramsA.demand_multiplier }} />
       <TopBar
         title="Scenarios"
         subtitle="Deterministic what-if simulation · the copilot explains the results"

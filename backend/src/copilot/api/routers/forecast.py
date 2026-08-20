@@ -12,8 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 
 from copilot.agent.context import CopilotContext
-from copilot.api.dependencies import get_context, get_forecast_summary
-from copilot.api.schemas.forecast import ForecastSeriesResponse, ForecastSummary
+from copilot.api.dependencies import get_context, get_forecast_summary, get_series_options
+from copilot.api.schemas.forecast import ForecastSeriesResponse, ForecastSummary, SeriesOptions
 from copilot.api.security import get_current_user
 
 router = APIRouter(prefix="/forecast", tags=["forecast"], dependencies=[Depends(get_current_user)])
@@ -42,6 +42,12 @@ async def summary():
     """Headline forecast accuracy vs the seasonal-naive baseline (cached)."""
     scores = await run_in_threadpool(get_forecast_summary)
     return ForecastSummary(**scores)
+
+
+@router.get("/options", response_model=SeriesOptions)
+async def options():
+    """Distinct item and store ids for the series selector (cached)."""
+    return await run_in_threadpool(get_series_options)
 
 
 @router.get("/series/{unique_id}", response_model=ForecastSeriesResponse)

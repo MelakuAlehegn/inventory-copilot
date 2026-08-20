@@ -51,6 +51,11 @@ export interface ForecastSummary {
   n_series: number;
 }
 
+export interface SeriesOptions {
+  items: string[];
+  stores: string[];
+}
+
 // ─── Simulation / Decisions ───────────────────────────────────────────────────
 export interface PolicyMetrics {
   fill_rate: number;

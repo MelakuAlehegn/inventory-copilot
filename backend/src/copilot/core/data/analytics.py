@@ -76,6 +76,18 @@ def top_series(metric: str = "revenue", limit: int = 10) -> list[dict]:
     return [dict(zip(cols, r, strict=True)) for r in rows]
 
 
+def series_options() -> dict:
+    """Distinct item and store ids, for the forecast series selector (single scan)."""
+    con = _connect()
+    try:
+        rows = con.execute("SELECT DISTINCT item_id, store_id FROM features").fetchall()
+    finally:
+        con.close()
+    items = sorted({r[0] for r in rows})
+    stores = sorted({r[1] for r in rows})
+    return {"items": items, "stores": stores}
+
+
 def series_detail(unique_id: str) -> dict | None:
     """Per-series drilldown: daily units/revenue time series + summary. None if unknown."""
     con = _connect()

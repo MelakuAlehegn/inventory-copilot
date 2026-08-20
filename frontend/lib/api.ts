@@ -4,6 +4,7 @@ import type {
   InventorySummary,
   ForecastSummary,
   ForecastSeries,
+  SeriesOptions,
   PolicyMetrics,
   CompareResult,
   CompareParams,
@@ -126,6 +127,10 @@ export function apiClient(token?: string | null) {
 
     getForecastSeries(uniqueId: string): Promise<ForecastSeries> {
       return getCached<ForecastSeries>(`/forecast/series/${encodeURIComponent(uniqueId)}`);
+    },
+
+    getSeriesOptions(): Promise<SeriesOptions> {
+      return getCached<SeriesOptions>("/forecast/options");
     },
 
     // ── Decisions ────────────────────────────────────────────────────────────

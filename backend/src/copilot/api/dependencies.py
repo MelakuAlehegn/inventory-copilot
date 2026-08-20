@@ -88,6 +88,10 @@ def get_kpis() -> dict:
     return _memo("kpis", analytics.kpis)
 
 
+def get_series_options() -> dict:
+    return _memo("series_options", analytics.series_options)
+
+
 def compare_metrics(ctx: CopilotContext, lead_time: int, review_period: int, service_level: float) -> dict:
     """base_stock vs naive at one setting (used by the endpoint and the default cache)."""
     common = dict(lead_time=lead_time, review_period=review_period, service_level=service_level)
@@ -119,6 +123,7 @@ def warm_caches() -> None:
         get_scorecard()
         get_pareto_default()
         get_kpis()
+        get_series_options()
         get_compare_default()
         logger.info("caches warmed")
     except Exception:  # a warm failure must never crash the server

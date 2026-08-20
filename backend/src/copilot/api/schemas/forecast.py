@@ -30,3 +30,8 @@ class ForecastSummary(BaseModel):
     mean_rmsse_model: float
     pinball_mean: float
     n_series: int
+
+
+class SeriesOptions(BaseModel):
+    items: list[str]
+    stores: list[str]
