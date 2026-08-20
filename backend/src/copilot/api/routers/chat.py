@@ -17,6 +17,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
+from copilot.agent import observability
 from copilot.agent.graph import message_text
 from copilot.api.dependencies import get_agent
 from copilot.api.schemas.chat import ChatMessageResponse, ChatRequest, ChatSessionResponse
@@ -55,15 +56,25 @@ def _summarize_tool_result(message: AnyMessage) -> str:
     return text[:200] + ("…" if len(text) > 200 else "")
 
 
-async def _event_stream(agent, history: list[AnyMessage], session_id: uuid.UUID) -> AsyncIterator[dict]:
+async def _event_stream(
+    agent,
+    history: list[AnyMessage],
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> AsyncIterator[dict]:
     """Run the agent, streaming a staged trajectory (status + tool calls + tool results),
     then the final answer, then persist it."""
     final_text = ""
     trace: list[dict] = []
 
+    # Trace the run in Langfuse when configured; an empty config (tracing off) is harmless.
+    config = observability.trace_config(
+        session_id=str(session_id), user_id=str(user_id), tags=["chat"]
+    )
+
     yield {"event": "status", "data": json.dumps({"label": "Thinking"})}
 
-    async for chunk in agent.astream({"messages": history}, stream_mode="updates"):
+    async for chunk in agent.astream({"messages": history}, stream_mode="updates", config=config):
         for node, update in chunk.items():
             if not isinstance(update, dict):
                 continue
@@ -112,6 +123,7 @@ async def _event_stream(agent, history: list[AnyMessage], session_id: uuid.UUID)
         )
         await session.commit()
 
+    await observability.flush()
     yield {"event": "done", "data": "{}"}
 
 
@@ -150,7 +162,7 @@ async def chat_stream(
     session.add(ChatMessage(session_id=chat.id, role="user", content=body.message))
     await session.commit()
 
-    return EventSourceResponse(_event_stream(agent, history, chat.id))
+    return EventSourceResponse(_event_stream(agent, history, chat.id, user.id))
 
 
 @router.get("/sessions", response_model=list[ChatSessionResponse])

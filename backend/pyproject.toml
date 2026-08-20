@@ -41,6 +41,7 @@ agent = [
     "langchain-google-genai>=2.0",  # Gemini chat model + native function calling
     "langfuse>=2.0",
     "logfire>=0.50",
+    "langchain>=1.0",
 ]
 # MCP server (optional)
 mcp = ["mcp>=1.0"]
