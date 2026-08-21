@@ -1,0 +1,7 @@
+# Frontend build context = frontend/. Send only what the build needs.
+node_modules
+.next
+.git
+npm-debug.log*
+**/.env
+**/.DS_Store
