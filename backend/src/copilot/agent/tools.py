@@ -15,6 +15,7 @@ import polars as pl
 from langchain_core.tools import BaseTool, tool
 
 from copilot.agent.context import CopilotContext
+from copilot.core.data.query import QueryError, run_read_query
 from copilot.core.simulation.inventory import inventory_table
 from copilot.core.simulation.pareto import service_cost_curve
 from copilot.core.simulation.scenario import Scenario, run_scenario
@@ -258,10 +259,38 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
             "high_estimate_total_q90": round(float(r["high_estimate_total_q90"]), 2),
         }
 
+    @tool(parse_docstring=True)
+    def query_data(sql: str) -> dict[str, Any]:
+        """Run a read-only SQL query over the historical sales data and return the rows.
+
+        Use this for questions about RECORDED data: units sold, prices, revenue, promotions/
+        calendar events, broken down by item, store, department, state, or date. Do NOT use it
+        for inventory positions, reorder points, safety stock, or stockouts - those are
+        simulated, so use run_what_if / get_inventory_item instead. Only a single SELECT (or
+        WITH ... SELECT) over the `features` table is allowed; results are capped at 200 rows.
+
+        The `features` table has one row per item-store-day, with columns:
+        - unique_id (item x store id), item_id, dept_id, store_id, state_id
+        - ds (DATE), y (units sold that day, INTEGER), sell_price (DOUBLE)
+        - price_change, price_rel (price relative to the item's own history)
+        - event_name_1, event_type_1, event_name_2, event_type_2 (calendar events; NULL if none)
+        - snap (0/1: a SNAP food-assistance benefit day)
+        Revenue = y * sell_price; skip rows where sell_price is NULL when summing revenue.
+
+        Args:
+            sql: a single read-only DuckDB SELECT (or WITH ... SELECT) over the `features` table.
+        """
+        try:
+            return run_read_query(sql)
+        except QueryError as e:
+            # Hand the reason back so the model can correct its SQL rather than failing.
+            return {"error": str(e)}
+
     return [
         run_what_if,
         compare_policies,
         get_pareto_curve,
         get_inventory_item,
         get_item_forecast,
+        query_data,
     ]

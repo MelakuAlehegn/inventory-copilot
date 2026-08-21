@@ -18,7 +18,7 @@ class GoldQuestion:
     id: str
     question: str
     expected_tools: tuple[str, ...]  # distinct tools we expect; () = should refuse
-    kind: str  # compare | what_if | pareto | refuse
+    kind: str  # compare | what_if | pareto | query | refuse
 
 
 GOLD: list[GoldQuestion] = [
@@ -78,6 +78,31 @@ GOLD: list[GoldQuestion] = [
         "Across service targets, does the forecast policy always cost less than naive?",
         ("get_pareto_curve",),
         "pareto",
+    ),
+    # --- recorded-data queries (historical sales/prices/events) ---
+    GoldQuestion(
+        "qry-top-store-units",
+        "Which store sold the most units in total across the whole history?",
+        ("query_data",),
+        "query",
+    ),
+    GoldQuestion(
+        "qry-top-items-revenue",
+        "What are the five highest-revenue items overall?",
+        ("query_data",),
+        "query",
+    ),
+    GoldQuestion(
+        "qry-snap-effect",
+        "Are average daily units sold higher on SNAP benefit days than on non-SNAP days?",
+        ("query_data",),
+        "query",
+    ),
+    GoldQuestion(
+        "qry-event-effect",
+        "How do average units sold on calendar-event days compare with normal days?",
+        ("query_data",),
+        "query",
     ),
     # --- out of scope: should refuse (no tools) ---
     GoldQuestion(
