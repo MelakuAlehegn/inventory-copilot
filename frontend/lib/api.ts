@@ -18,7 +18,13 @@ import type {
   ChatMessage,
 } from "@/lib/types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Browser calls must use the API's PUBLIC url (NEXT_PUBLIC_API_URL, baked at build time).
+// The Next server (server components / route handlers) can instead reach the API at an
+// INTERNAL url (API_BASE_URL, e.g. the service name inside a container network); it falls
+// back to the public url, then localhost, for plain local dev.
+const PUBLIC_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE =
+  typeof window === "undefined" ? (process.env.API_BASE_URL ?? PUBLIC_BASE) : PUBLIC_BASE;
 
 // ── Process-level cache for global, read-only GETs ──────────────────────────────
 // The Next fetch Data Cache is a no-op under `next dev --turbopack`, so we keep our own
