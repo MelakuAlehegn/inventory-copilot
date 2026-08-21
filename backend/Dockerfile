@@ -42,6 +42,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 COPY --from=builder /app/.venv /app/.venv
 COPY backend/src ./src
+# Alembic config + migrations, so a deploy can run `alembic upgrade head` from this image.
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/migrations ./migrations
 # Bake the processed analytics data + trained quantile forecast the API serves from.
 COPY data/processed ./data/processed
 

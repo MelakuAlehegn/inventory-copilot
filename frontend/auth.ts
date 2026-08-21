@@ -10,7 +10,10 @@ declare module "next-auth" {
   }
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Auth.js runs on the server, so prefer the internal API url (API_BASE_URL, e.g. a service
+// name in a container network); fall back to the public url, then localhost, for local dev.
+const API =
+  process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const jwtSecret = new TextEncoder().encode(
   process.env.AUTH_JWT_SECRET ?? "dev-secret-change-in-production"
 );
