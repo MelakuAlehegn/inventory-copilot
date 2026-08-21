@@ -67,8 +67,10 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
             elasticity: price elasticity of demand (usually negative). With it set, a price
                 change of (price_multiplier-1) changes demand by elasticity*(price_multiplier-1).
                 Leave 0 for no price->demand link. This is an approximation.
-            shock_start: optional ISO date "YYYY-MM-DD"; limits the demand shock to on/after this day.
-            shock_end: optional ISO date "YYYY-MM-DD"; limits the demand shock to on/before this day.
+            shock_start: optional ISO date "YYYY-MM-DD"; limits the demand shock to
+                on/after this day.
+            shock_end: optional ISO date "YYYY-MM-DD"; limits the demand shock to
+                on/before this day.
         """
         scenario = Scenario(
             policy=policy,
@@ -82,8 +84,12 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
             shock_end=_parse_date(shock_end),
         )
         metrics = run_scenario(
-            scenario, ctx.actuals, ctx.prices, ctx.cutoff,
-            forecast=ctx.forecast, history=ctx.history,
+            scenario,
+            ctx.actuals,
+            ctx.prices,
+            ctx.cutoff,
+            forecast=ctx.forecast,
+            history=ctx.history,
         )
         return _round(metrics)
 
@@ -103,12 +109,20 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         """
         common = dict(lead_time=lead_time, review_period=review_period, service_level=service_level)
         base = run_scenario(
-            Scenario(policy="base_stock", **common), ctx.actuals, ctx.prices, ctx.cutoff,
-            forecast=ctx.forecast, history=ctx.history,
+            Scenario(policy="base_stock", **common),
+            ctx.actuals,
+            ctx.prices,
+            ctx.cutoff,
+            forecast=ctx.forecast,
+            history=ctx.history,
         )
         naive = run_scenario(
-            Scenario(policy="naive", **common), ctx.actuals, ctx.prices, ctx.cutoff,
-            forecast=ctx.forecast, history=ctx.history,
+            Scenario(policy="naive", **common),
+            ctx.actuals,
+            ctx.prices,
+            ctx.cutoff,
+            forecast=ctx.forecast,
+            history=ctx.history,
         )
         delta = {k: round(base[k] - naive[k], _PRECISION.get(k, 2)) for k in base}
         return {"base_stock": _round(base), "naive": _round(naive), "delta_base_minus_naive": delta}
@@ -144,8 +158,11 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         """
         levels = service_levels or [0.90, 0.95, 0.98, 0.99]
         baseline = (
-            lead_time == 7 and review_period == 7 and demand_multiplier == 1.0
-            and price_multiplier == 1.0 and elasticity == 0.0
+            lead_time == 7
+            and review_period == 7
+            and demand_multiplier == 1.0
+            and price_multiplier == 1.0
+            and elasticity == 0.0
         )
         if baseline:
             curve = service_cost_curve(
@@ -157,14 +174,21 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         rows: list[dict] = []
         for sl in levels:
             common = dict(
-                lead_time=lead_time, review_period=review_period, service_level=sl,
-                demand_multiplier=demand_multiplier, price_multiplier=price_multiplier,
+                lead_time=lead_time,
+                review_period=review_period,
+                service_level=sl,
+                demand_multiplier=demand_multiplier,
+                price_multiplier=price_multiplier,
                 elasticity=elasticity,
             )
             for policy in ("base_stock", "naive"):
                 metrics = run_scenario(
-                    Scenario(policy=policy, **common), ctx.actuals, ctx.prices, ctx.cutoff,
-                    forecast=ctx.forecast, history=ctx.history,
+                    Scenario(policy=policy, **common),
+                    ctx.actuals,
+                    ctx.prices,
+                    ctx.cutoff,
+                    forecast=ctx.forecast,
+                    history=ctx.history,
                 )
                 rows.append({"service_level": sl, "policy": policy, **_round(metrics)})
         return rows

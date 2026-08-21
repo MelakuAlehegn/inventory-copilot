@@ -37,7 +37,9 @@ class Verdict(BaseModel):
     """A judge's assessment of one answer."""
 
     is_refusal: bool = Field(description="answer declines/says it can't, vs. answers substantively")
-    quality: int = Field(ge=1, le=5, description="1-5 correctness/sensibleness given the tool results")
+    quality: int = Field(
+        ge=1, le=5, description="1-5 correctness/sensibleness given the tool results"
+    )
     reason: str = Field(description="one short sentence justifying the rating")
 
 
@@ -90,8 +92,10 @@ def main() -> None:
         good_ok = (v.quality >= 4) == case["expect_good"]
         mark = "OK " if (refusal_ok and good_ok) else "?? "
         print(f"[{mark}] {case['name']}")
-        print(f"       is_refusal={v.is_refusal} (expected {case['expect_refusal']})  "
-              f"quality={v.quality} (expected {'high' if case['expect_good'] else 'low'})")
+        print(
+            f"       is_refusal={v.is_refusal} (expected {case['expect_refusal']})  "
+            f"quality={v.quality} (expected {'high' if case['expect_good'] else 'low'})"
+        )
         print(f"       reason: {v.reason}\n")
 
 

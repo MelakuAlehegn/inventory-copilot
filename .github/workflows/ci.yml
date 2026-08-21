@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (tests)
+    name: Backend (lint + tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,6 +29,12 @@ jobs:
       # uv provisions the Python pinned by pyproject (>=3.12,<3.13) if the runner lacks it.
       - name: Install dependencies
         run: uv sync --frozen --extra api --extra agent --extra dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
 
       - name: Tests
         run: uv run pytest -q

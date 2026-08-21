@@ -92,10 +92,7 @@ def train_and_forecast(train: pl.LazyFrame, horizon: int = HORIZON) -> pl.LazyFr
     fcst.fit(df, static_features=STATIC)
     out = fcst.predict(h=horizon)
     return (
-        pl.from_pandas(out)
-        .rename({"lgbm": "yhat"})
-        .with_columns(pl.col("ds").cast(pl.Date))
-        .lazy()
+        pl.from_pandas(out).rename({"lgbm": "yhat"}).with_columns(pl.col("ds").cast(pl.Date)).lazy()
     )
 
 

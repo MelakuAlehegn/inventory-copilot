@@ -80,8 +80,14 @@ def main() -> None:
 
     sl = summary["service_level"]
     print(f"\n=== decision quality @ service target {sl:.0%} ===")
-    print(f"  fill rate          model {summary['fill_rate_model']:.4f}  vs naive {summary['fill_rate_naive']:.4f}")
-    print(f"  stockout-day rate  model {summary['stockout_day_rate_model']:.4f}  vs naive {summary['stockout_day_rate_naive']:.4f}")
+    print(
+        f"  fill rate          model {summary['fill_rate_model']:.4f}  "
+        f"vs naive {summary['fill_rate_naive']:.4f}"
+    )
+    print(
+        f"  stockout-day rate  model {summary['stockout_day_rate_model']:.4f}  "
+        f"vs naive {summary['stockout_day_rate_naive']:.4f}"
+    )
     print(f"  stockout units reduction {summary['stockout_units_reduction']:+.1%}")
     print(f"  holding cost reduction   {summary['holding_cost_reduction']:+.1%}")
     print(f"  stockout cost reduction  {summary['stockout_cost_reduction']:+.1%}")

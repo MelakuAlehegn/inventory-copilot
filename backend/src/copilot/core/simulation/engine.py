@@ -42,8 +42,8 @@ def simulate(
         order_placed.
     """
     lv = _to_df(levels).select("unique_id", "order_up_to").sort("unique_id")
-    wide = _to_df(actuals).select("unique_id", "ds", "y").pivot(
-        values="y", index="unique_id", on="ds"
+    wide = (
+        _to_df(actuals).select("unique_id", "ds", "y").pivot(values="y", index="unique_id", on="ds")
     )
     merged = lv.join(wide, on="unique_id").sort("unique_id")
 

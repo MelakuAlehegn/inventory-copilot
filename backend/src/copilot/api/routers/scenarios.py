@@ -48,12 +48,16 @@ async def list_scenarios(
     user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
 ):
     rows = (
-        await session.execute(
-            select(SavedScenario)
-            .where(SavedScenario.user_id == user.id)
-            .order_by(SavedScenario.updated_at.desc())
+        (
+            await session.execute(
+                select(SavedScenario)
+                .where(SavedScenario.user_id == user.id)
+                .order_by(SavedScenario.updated_at.desc())
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return rows
 
 

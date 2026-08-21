@@ -88,7 +88,10 @@ def main() -> None:
         f"WRMSSE {metrics['wrmsse_model']:.4f} "
         f"({metrics['wrmsse_improvement']:+.1%} vs naive), pinball {metrics['pinball_mean']:.4f}"
     )
-    print(f"logged MLflow run {run_id} (experiment {_EXPERIMENT}, tracking {settings.mlflow_tracking_uri})")
+    print(
+        f"logged MLflow run {run_id} (experiment {_EXPERIMENT}, "
+        f"tracking {settings.mlflow_tracking_uri})"
+    )
 
 
 if __name__ == "__main__":

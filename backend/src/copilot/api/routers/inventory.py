@@ -14,7 +14,9 @@ from copilot.api.dependencies import get_inventory_table
 from copilot.api.schemas.inventory import InventoryItem, InventorySummary
 from copilot.api.security import get_current_user
 
-router = APIRouter(prefix="/inventory", tags=["inventory"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/inventory", tags=["inventory"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.get("/summary", response_model=InventorySummary)

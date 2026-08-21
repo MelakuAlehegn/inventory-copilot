@@ -16,7 +16,7 @@ import argparse
 import time
 
 import polars as pl
-from langchain_core.messages import AIMessage, AnyMessage, ToolMessage
+from langchain_core.messages import AnyMessage, ToolMessage
 
 from copilot.agent.context import load_context
 from copilot.agent.graph import build_agent, message_text
@@ -90,8 +90,9 @@ def evaluate_question(agent, gold: GoldQuestion, judge_model=None) -> dict:
     return row
 
 
-def run_eval(agent, gold: list[GoldQuestion], sleep: float = 0.0, limit: int | None = None,
-             judge_model=None) -> list[dict]:
+def run_eval(
+    agent, gold: list[GoldQuestion], sleep: float = 0.0, limit: int | None = None, judge_model=None
+) -> list[dict]:
     """Score every question, optionally pausing `sleep` seconds between them."""
     items = gold[:limit] if limit else gold
     rows: list[dict] = []
@@ -100,12 +101,19 @@ def run_eval(agent, gold: list[GoldQuestion], sleep: float = 0.0, limit: int | N
         try:
             rows.append(evaluate_question(agent, g, judge_model=judge_model))
         except Exception as e:  # one bad call shouldn't abort the whole eval
-            rows.append({
-                "id": g.id, "kind": g.kind,
-                "expected": ",".join(g.expected_tools) or "(refuse)",
-                "called": f"ERROR: {e}"[:40], "tool_ok": False,
-                "retries": -1, "gave_up": False, "grounded": False, "error": True,
-            })
+            rows.append(
+                {
+                    "id": g.id,
+                    "kind": g.kind,
+                    "expected": ",".join(g.expected_tools) or "(refuse)",
+                    "called": f"ERROR: {e}"[:40],
+                    "tool_ok": False,
+                    "retries": -1,
+                    "gave_up": False,
+                    "grounded": False,
+                    "error": True,
+                }
+            )
         if sleep and i < len(items) - 1:
             time.sleep(sleep)
     return rows
@@ -133,9 +141,9 @@ def summarize(rows: list[dict]) -> dict[str, float]:
     if judged:
         j = len(judged)
         # Refusal is correct when the answer declines exactly on the out-of-scope questions.
-        out["refusal_accuracy"] = sum(
-            1 for r in judged if (r["kind"] == "refuse") == r["is_refusal"]
-        ) / j
+        out["refusal_accuracy"] = (
+            sum(1 for r in judged if (r["kind"] == "refuse") == r["is_refusal"]) / j
+        )
         out["avg_quality"] = sum(r["quality"] for r in judged) / j
         out["quality_pass_rate"] = sum(1 for r in judged if r["quality"] >= 4) / j
 
@@ -144,10 +152,18 @@ def summarize(rows: list[dict]) -> dict[str, float]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate the agent against the gold set.")
-    parser.add_argument("--quick", action="store_true", help="one question per kind (fast smoke test)")
-    parser.add_argument("--judge", action="store_true", help="also run the LLM-judge (extra model calls)")
-    parser.add_argument("--rps", type=float, default=None, help="cap requests/second for a gentle batch run")
-    parser.add_argument("--sleep", type=float, default=0.0, help="seconds to pause between questions")
+    parser.add_argument(
+        "--quick", action="store_true", help="one question per kind (fast smoke test)"
+    )
+    parser.add_argument(
+        "--judge", action="store_true", help="also run the LLM-judge (extra model calls)"
+    )
+    parser.add_argument(
+        "--rps", type=float, default=None, help="cap requests/second for a gentle batch run"
+    )
+    parser.add_argument(
+        "--sleep", type=float, default=0.0, help="seconds to pause between questions"
+    )
     parser.add_argument("--limit", type=int, default=None, help="only the first N questions")
     args = parser.parse_args()
 

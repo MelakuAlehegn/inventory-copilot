@@ -112,10 +112,7 @@ def run_scenario(
     price_demand_factor = 1.0 + scenario.elasticity * (scenario.price_multiplier - 1.0)
     combined_multiplier = scenario.demand_multiplier * max(price_demand_factor, 0.0)
     shocked = actuals.with_columns(
-        pl.when(in_window)
-        .then(pl.col("y") * combined_multiplier)
-        .otherwise(pl.col("y"))
-        .alias("y")
+        pl.when(in_window).then(pl.col("y") * combined_multiplier).otherwise(pl.col("y")).alias("y")
     )
     priced = prices.with_columns(
         (pl.col("unit_price") * scenario.price_multiplier).alias("unit_price")

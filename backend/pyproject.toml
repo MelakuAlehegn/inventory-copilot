@@ -73,9 +73,14 @@ packages = ["src/copilot"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Alembic writes the migration files; don't lint generated code.
+extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# B008: FastAPI intentionally calls Depends()/Query()/etc. in argument defaults; that is the
+# framework's dependency-injection idiom, not the mutable-default bug B008 targets.
+ignore = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"

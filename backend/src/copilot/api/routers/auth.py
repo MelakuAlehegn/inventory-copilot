@@ -47,6 +47,10 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
 async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
     """Verify email/password and return the identity (for Auth.js to build the session)."""
     user = await _user_by_email(session, body.email)
-    if user is None or user.password_hash is None or not verify_password(body.password, user.password_hash):
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(body.password, user.password_hash)
+    ):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid email or password")
     return user

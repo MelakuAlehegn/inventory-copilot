@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import polars as pl
 
@@ -92,16 +93,26 @@ def get_series_options() -> dict:
     return _memo("series_options", analytics.series_options)
 
 
-def compare_metrics(ctx: CopilotContext, lead_time: int, review_period: int, service_level: float) -> dict:
+def compare_metrics(
+    ctx: CopilotContext, lead_time: int, review_period: int, service_level: float
+) -> dict:
     """base_stock vs naive at one setting (used by the endpoint and the default cache)."""
     common = dict(lead_time=lead_time, review_period=review_period, service_level=service_level)
     base = run_scenario(
-        Scenario(policy="base_stock", **common), ctx.actuals, ctx.prices, ctx.cutoff,
-        forecast=ctx.forecast, history=ctx.history,
+        Scenario(policy="base_stock", **common),
+        ctx.actuals,
+        ctx.prices,
+        ctx.cutoff,
+        forecast=ctx.forecast,
+        history=ctx.history,
     )
     naive = run_scenario(
-        Scenario(policy="naive", **common), ctx.actuals, ctx.prices, ctx.cutoff,
-        forecast=ctx.forecast, history=ctx.history,
+        Scenario(policy="naive", **common),
+        ctx.actuals,
+        ctx.prices,
+        ctx.cutoff,
+        forecast=ctx.forecast,
+        history=ctx.history,
     )
     delta = {k: round(base[k] - naive[k], 4) for k in base}
     return {"base_stock": base, "naive": naive, "delta": delta}
@@ -110,7 +121,9 @@ def compare_metrics(ctx: CopilotContext, lead_time: int, review_period: int, ser
 def get_compare_default() -> dict:
     ctx = get_context()
     p = PolicyParams()
-    return _memo("compare", lambda: compare_metrics(ctx, p.lead_time, p.review_period, p.service_level))
+    return _memo(
+        "compare", lambda: compare_metrics(ctx, p.lead_time, p.review_period, p.service_level)
+    )
 
 
 def warm_caches() -> None:

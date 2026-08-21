@@ -46,25 +46,18 @@ def add_price_features(lf: pl.LazyFrame) -> pl.LazyFrame:
                       (>1 = dearer than usual, <1 = on sale / cheaper than usual).
     """
     prev = pl.col("sell_price").shift(1).over("unique_id")
-    run_mean = (
-        pl.col("sell_price").cum_sum().over("unique_id")
-        / pl.col("sell_price").cum_count().over("unique_id")
-    )
+    run_mean = pl.col("sell_price").cum_sum().over("unique_id") / pl.col(
+        "sell_price"
+    ).cum_count().over("unique_id")
     return lf.with_columns(
         (pl.col("sell_price") / prev - 1).alias("price_change"),
         (pl.col("sell_price") / run_mean).alias("price_rel"),
     )
 
 
-def make_modeling_frame(
-    category: str = "FOODS", stores: list[str] | None = None
-) -> pl.LazyFrame:
+def make_modeling_frame(category: str = "FOODS", stores: list[str] | None = None) -> pl.LazyFrame:
     """Load the slice and return a cleaned, feature-enriched modeling frame."""
-    lf = (
-        load_slice(category, stores)
-        .rename({"date": "ds", "sales": "y"})
-        .sort("unique_id", "ds")
-    )
+    lf = load_slice(category, stores).rename({"date": "ds", "sales": "y"}).sort("unique_id", "ds")
     lf = normalize_events(lf)
     lf = trim_prelaunch(lf)
     lf = add_price_features(lf)

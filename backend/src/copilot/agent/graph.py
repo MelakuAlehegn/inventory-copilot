@@ -70,7 +70,8 @@ def _system_prompt(ctx: CopilotContext) -> str:
         "- Controllable levers the planner can actually set: policy, service_level, lead_time, "
         "review_period. Recommend changes to THESE.\n"
         "- Scenario assumptions describing the world, not a setting: demand_multiplier (a demand "
-        "shock), price_multiplier and elasticity. The planner does not 'set' these to hit a target. "
+        "shock), price_multiplier and elasticity. The planner does not 'set' these to "
+        "hit a target. "
         "If reaching a target depends on one of them, frame it as a condition, e.g. 'if the demand "
         "surge eases back to normal (demand_multiplier 1), then service_level 0.98 reaches 93%', "
         "not 'set demand_multiplier to 1'.\n\n"
@@ -83,7 +84,8 @@ def _system_prompt(ctx: CopilotContext) -> str:
         "run_what_if again just to reproduce a result you already have. Call a tool only when the "
         "user asks about a DIFFERENT setting than the shown one, or wants something the snapshot "
         "doesn't include (a service-level sweep, a policy comparison, an item lookup). If "
-        "sliders_changed_since_run is 'yes', the on-screen numbers came from the shown_ parameters, "
+        "sliders_changed_since_run is 'yes', the on-screen numbers came from the "
+        "shown_ parameters, "
         "not the current slider positions; explain the shown result, and if the user seems to mean "
         "the new slider values, note that they haven't run that yet.\n\n"
         "Answer in plain, non-jargon language that a person with no retail background can follow."
@@ -174,7 +176,9 @@ def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None
     graph.add_node("tools", tools_node)
     graph.add_node("grounding", _grounding)
     graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", _should_continue, {"tools": "tools", "answer": "grounding"})
+    graph.add_conditional_edges(
+        "agent", _should_continue, {"tools": "tools", "answer": "grounding"}
+    )
     graph.add_edge("tools", "agent")
     graph.add_conditional_edges(
         "grounding", _route_after_grounding, {"retry": "agent", "end": END, "failed": END}

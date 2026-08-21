@@ -11,18 +11,20 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 
+from copilot.api.dependencies import get_kpis as get_kpis_cached
 from copilot.api.schemas.analytics import (
     KpisResponse,
     SeriesDetailResponse,
     StoreRow,
     TopSeriesRow,
 )
-from copilot.api.dependencies import get_kpis as get_kpis_cached
 from copilot.api.security import get_current_user
 from copilot.core.data import analytics
 
 # Internal tool: analytics require a valid token too.
-router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/analytics", tags=["analytics"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.get("/kpis", response_model=KpisResponse)

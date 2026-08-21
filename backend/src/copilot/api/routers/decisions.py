@@ -34,7 +34,9 @@ from copilot.api.security import get_current_user
 from copilot.core.simulation.pareto import service_cost_curve
 from copilot.core.simulation.scenario import Scenario, run_scenario
 
-router = APIRouter(prefix="/decisions", tags=["decisions"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/decisions", tags=["decisions"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.post("/what-if", response_model=MetricsResponse)
@@ -42,8 +44,13 @@ async def what_if(body: ScenarioRequest, ctx: CopilotContext = Depends(get_conte
     """Run one what-if scenario and return its service and cost metrics."""
     scenario = Scenario(**body.model_dump())
     metrics = await run_in_threadpool(
-        run_scenario, scenario, ctx.actuals, ctx.prices, ctx.cutoff,
-        forecast=ctx.forecast, history=ctx.history,
+        run_scenario,
+        scenario,
+        ctx.actuals,
+        ctx.prices,
+        ctx.cutoff,
+        forecast=ctx.forecast,
+        history=ctx.history,
     )
     return MetricsResponse(**metrics)
 
@@ -75,7 +82,13 @@ async def pareto(
         curve = await run_in_threadpool(get_pareto_default)
     else:
         curve = await run_in_threadpool(
-            service_cost_curve, ctx.forecast, ctx.history, ctx.actuals, ctx.prices, ctx.cutoff, service_levels
+            service_cost_curve,
+            ctx.forecast,
+            ctx.history,
+            ctx.actuals,
+            ctx.prices,
+            ctx.cutoff,
+            service_levels,
         )
     return curve.to_dicts()
 

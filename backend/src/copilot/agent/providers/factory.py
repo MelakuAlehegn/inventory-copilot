@@ -40,7 +40,9 @@ def get_chat_model(
 
         rps = rate_limit_rps if rate_limit_rps is not None else cfg.llm_requests_per_second
         rate_limiter = (
-            InMemoryRateLimiter(requests_per_second=rps, check_every_n_seconds=0.1, max_bucket_size=2)
+            InMemoryRateLimiter(
+                requests_per_second=rps, check_every_n_seconds=0.1, max_bucket_size=2
+            )
             if rps
             else None
         )

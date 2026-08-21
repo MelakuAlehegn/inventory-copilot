@@ -13,8 +13,13 @@ import duckdb
 from copilot.config import settings
 
 _KPI_KEYS = [
-    "n_series", "n_stores", "start_date", "end_date",
-    "total_units", "total_revenue", "avg_daily_demand",
+    "n_series",
+    "n_stores",
+    "start_date",
+    "end_date",
+    "total_units",
+    "total_revenue",
+    "avg_daily_demand",
 ]
 
 
@@ -112,8 +117,16 @@ def series_detail(unique_id: str) -> dict | None:
     finally:
         con.close()
 
-    keys = ["item_id", "store_id", "n_days", "start_date", "end_date",
-            "total_units", "total_revenue", "avg_price"]
+    keys = [
+        "item_id",
+        "store_id",
+        "n_days",
+        "start_date",
+        "end_date",
+        "total_units",
+        "total_revenue",
+        "avg_price",
+    ]
     detail = dict(zip(keys, summary, strict=True))
     detail["unique_id"] = unique_id
     detail["series"] = [{"ds": ds, "units": u, "revenue": rev} for ds, u, rev in points]

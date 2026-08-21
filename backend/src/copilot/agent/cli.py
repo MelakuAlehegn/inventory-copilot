@@ -29,9 +29,7 @@ _QUIT = {"exit", "quit", "q", ":q"}
 def _answer(agent, question: str, show_steps: bool) -> str:
     """Run one turn; print tool steps as they stream; return the final verified answer."""
     final = ""
-    for chunk in agent.stream(
-        {"messages": [("user", question)]}, _THREAD, stream_mode="updates"
-    ):
+    for chunk in agent.stream({"messages": [("user", question)]}, _THREAD, stream_mode="updates"):
         for node, update in chunk.items():
             messages = update.get("messages", []) if isinstance(update, dict) else []
             for m in messages:
@@ -49,8 +47,10 @@ def main() -> None:
     parser.add_argument("--quiet", action="store_true", help="hide the tool-step lines")
     args = parser.parse_args()
 
-    print(f"{_BOLD}Inventory Copilot{_RESET}  (provider={settings.llm_provider}, "
-          f"model={settings.llm_model})")
+    print(
+        f"{_BOLD}Inventory Copilot{_RESET}  (provider={settings.llm_provider}, "
+        f"model={settings.llm_model})"
+    )
     print("loading data...", flush=True)
     ctx = load_context()
     agent = build_agent(ctx, checkpointer=MemorySaver())

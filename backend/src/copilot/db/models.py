@@ -27,10 +27,10 @@ class User(Base, TimestampMixin):
     # Set only for email/password users; None for OAuth users.
     password_hash: Mapped[str | None] = mapped_column(nullable=True)
 
-    scenarios: Mapped[list["SavedScenario"]] = relationship(
+    scenarios: Mapped[list[SavedScenario]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    chats: Mapped[list["ChatSession"]] = relationship(
+    chats: Mapped[list[ChatSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -39,9 +39,7 @@ class SavedScenario(Base, TimestampMixin):
     __tablename__ = "saved_scenarios"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str]
     # The what-if knob values (a Scenario's fields) as JSON.
     params: Mapped[dict] = mapped_column(JSONB)
@@ -53,13 +51,11 @@ class ChatSession(Base, TimestampMixin):
     __tablename__ = "chat_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title: Mapped[str | None]
     page: Mapped[str | None] = mapped_column(index=True)  # origin page (dashboard, scenarios, ...)
 
-    messages: Mapped[list["ChatMessage"]] = relationship(
+    messages: Mapped[list[ChatMessage]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.id"
     )
     user: Mapped[User] = relationship(back_populates="chats")

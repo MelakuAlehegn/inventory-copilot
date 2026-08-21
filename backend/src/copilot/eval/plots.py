@@ -22,9 +22,7 @@ def plot_service_cost_curve(curve: pl.DataFrame, out_path: str | Path) -> Path:
     labelled; two policies, direct-labelled and in the legend so identity is never
     color-alone.
     """
-    df = curve.with_columns(
-        (pl.col("holding_cost") + pl.col("stockout_cost")).alias("inv_cost")
-    )
+    df = curve.with_columns((pl.col("holding_cost") + pl.col("stockout_cost")).alias("inv_cost"))
 
     fig, ax = plt.subplots(figsize=(8, 5.5), dpi=150)
     for policy in ("naive", "base_stock"):
@@ -34,16 +32,33 @@ def plot_service_cost_curve(curve: pl.DataFrame, out_path: str | Path) -> Path:
         color = _COLORS[policy]
         ax.plot(x, y, "-o", color=color, linewidth=2, markersize=8, label=_LABELS[policy], zorder=3)
         for xi, yi, sl in zip(x, y, d["service_level"].to_list(), strict=True):
-            ax.annotate(f"{sl:.0%}", (xi, yi), textcoords="offset points", xytext=(6, 6),
-                        fontsize=8, color="#52514e")
+            ax.annotate(
+                f"{sl:.0%}",
+                (xi, yi),
+                textcoords="offset points",
+                xytext=(6, 6),
+                fontsize=8,
+                color="#52514e",
+            )
         # direct label at the last point
-        ax.annotate(_LABELS[policy], (x[-1], y[-1]), textcoords="offset points",
-                    xytext=(10, -2), fontsize=9, color=color, fontweight="bold", va="center")
+        ax.annotate(
+            _LABELS[policy],
+            (x[-1], y[-1]),
+            textcoords="offset points",
+            xytext=(10, -2),
+            fontsize=9,
+            color=color,
+            fontweight="bold",
+            va="center",
+        )
 
     ax.set_xlabel("Fill rate  (service achieved) →")
     ax.set_ylabel("Inventory cost  (holding + stockout), $k")
-    ax.set_title("Service vs cost: forecast-driven policy vs naive\n"
-                 "point labels = target service level · lower-right is better", fontsize=11)
+    ax.set_title(
+        "Service vs cost: forecast-driven policy vs naive\n"
+        "point labels = target service level · lower-right is better",
+        fontsize=11,
+    )
     ax.grid(True, color="#e6e6e3", linewidth=0.8, zorder=0)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)

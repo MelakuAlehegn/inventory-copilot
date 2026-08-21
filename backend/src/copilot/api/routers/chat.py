@@ -91,24 +91,36 @@ async def _event_stream(
                             yield {"event": "tool", "data": json.dumps(step)}
                     elif isinstance(m, AIMessage):
                         final_text = message_text(m)
-                        yield {"event": "status", "data": json.dumps({"label": "Verifying the figures"})}
+                        yield {
+                            "event": "status",
+                            "data": json.dumps({"label": "Verifying the figures"}),
+                        }
 
             elif node == "tools":
                 for m in messages:
-                    yield {"event": "tool_result", "data": json.dumps(
-                        {"name": getattr(m, "name", ""), "summary": _summarize_tool_result(m)}
-                    )}
+                    yield {
+                        "event": "tool_result",
+                        "data": json.dumps(
+                            {"name": getattr(m, "name", ""), "summary": _summarize_tool_result(m)}
+                        ),
+                    }
 
             elif node == "grounding":
                 route = update.get("route")
                 if route == "retry":
-                    yield {"event": "status", "data": json.dumps({"label": "Double-checking the numbers"})}
+                    yield {
+                        "event": "status",
+                        "data": json.dumps({"label": "Double-checking the numbers"}),
+                    }
                 for m in messages:
                     if isinstance(m, AIMessage):  # the honest "couldn't verify" fallback
                         final_text = message_text(m)
 
     yield {"event": "status", "data": json.dumps({"label": "Finalizing"})}
-    yield {"event": "message", "data": json.dumps({"session_id": str(session_id), "content": final_text})}
+    yield {
+        "event": "message",
+        "data": json.dumps({"session_id": str(session_id), "content": final_text}),
+    }
 
     # Persist the assistant turn in its own session (the request session is torn down once
     # the response starts streaming).
@@ -150,10 +162,16 @@ async def chat_stream(
         await session.flush()  # assign chat.id
 
     prior = (
-        await session.execute(
-            select(ChatMessage).where(ChatMessage.session_id == chat.id).order_by(ChatMessage.id)
+        (
+            await session.execute(
+                select(ChatMessage)
+                .where(ChatMessage.session_id == chat.id)
+                .order_by(ChatMessage.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     history = to_lc_history(prior)
     if body.context:
         history.append(SystemMessage(context_note(body.context)))
@@ -190,10 +208,16 @@ async def get_messages(
     if chat is None or chat.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")
     rows = (
-        await session.execute(
-            select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.id)
+        (
+            await session.execute(
+                select(ChatMessage)
+                .where(ChatMessage.session_id == session_id)
+                .order_by(ChatMessage.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return rows
 
 

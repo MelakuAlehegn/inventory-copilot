@@ -38,13 +38,11 @@ def decode_token(token: str) -> dict:
             detail="authentication is not configured",
         )
     try:
-        return jwt.decode(
-            token, settings.auth_jwt_secret, algorithms=[settings.auth_jwt_algorithm]
-        )
-    except jwt.PyJWTError:
+        return jwt.decode(token, settings.auth_jwt_secret, algorithms=[settings.auth_jwt_algorithm])
+    except jwt.PyJWTError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid or expired token"
-        )
+        ) from err
 
 
 async def get_current_user(

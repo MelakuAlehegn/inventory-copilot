@@ -129,9 +129,7 @@ def check_grounding(answer: str, grounded: list[float]) -> GroundingResult:
         if not _is_claim(tok):
             continue
         candidates = _token_candidates(tok)
-        if any(
-            _matches_directly(v, grounded) or _is_derivable(v, grounded) for v in candidates
-        ):
+        if any(_matches_directly(v, grounded) or _is_derivable(v, grounded) for v in candidates):
             continue
         orphans.append(candidates[-1])
     return GroundingResult(ok=not orphans, orphans=orphans)

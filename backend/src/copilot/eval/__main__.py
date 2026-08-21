@@ -48,7 +48,9 @@ def _print_scorecard(fc: dict, dec: dict, agent: dict | None) -> None:
     print(f"  pinball loss (mean)       {fc['pinball_mean']:.4f}")
 
     print(f"\nDECISION  (forecast policy vs naive @ {dec['service_level']:.0%} service)")
-    print(f"  fill rate  model / naive  {dec['fill_rate_model']:.4f} / {dec['fill_rate_naive']:.4f}")
+    print(
+        f"  fill rate  model / naive  {dec['fill_rate_model']:.4f} / {dec['fill_rate_naive']:.4f}"
+    )
     print(f"  stockout units reduction  {dec['stockout_units_reduction']:+.1%}")
     print(f"  stockout cost reduction   {dec['stockout_cost_reduction']:+.1%}")
     print(f"  total cost reduction      {dec['total_cost_reduction']:+.1%}")
@@ -68,7 +70,9 @@ def _print_scorecard(fc: dict, dec: dict, agent: dict | None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Full 3-layer eval scorecard.")
-    parser.add_argument("--with-agent", action="store_true", help="also run the agent layer (needs LLM)")
+    parser.add_argument(
+        "--with-agent", action="store_true", help="also run the agent layer (needs LLM)"
+    )
     parser.add_argument("--quick", action="store_true", help="agent: one question per kind")
     parser.add_argument("--judge", action="store_true", help="agent: also run the LLM-judge")
     parser.add_argument("--rps", type=float, default=None, help="agent: cap requests/second")
@@ -97,7 +101,11 @@ def main() -> None:
     fc = evaluate_forecast(train, forecast, actuals_lf, cutoff)
     print("[decision] simulating policy vs naive...")
     dec, _curve = decision_report(forecast, train, actuals_df, prices, cutoff)
-    agent = _run_agent_layer(forecast, train, actuals_df, prices, cutoff, args) if args.with_agent else None
+    agent = (
+        _run_agent_layer(forecast, train, actuals_df, prices, cutoff, args)
+        if args.with_agent
+        else None
+    )
 
     _print_scorecard(fc, dec, agent)
 

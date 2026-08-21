@@ -22,7 +22,13 @@ from copilot.core.forecast.baseline import HORIZON
 from copilot.core.forecast.model import train_and_forecast_quantiles
 from copilot.eval.forecast import evaluate_forecast
 
-_METRIC_KEYS = ["wrmsse_model", "wrmsse_naive", "wrmsse_improvement", "mean_rmsse_model", "pinball_mean"]
+_METRIC_KEYS = [
+    "wrmsse_model",
+    "wrmsse_naive",
+    "wrmsse_improvement",
+    "mean_rmsse_model",
+    "pinball_mean",
+]
 
 
 def rolling_origin_backtest(
@@ -36,8 +42,12 @@ def rolling_origin_backtest(
     max_ds: date = features.select(pl.col("ds").max()).collect().item()
     if sample:
         ids = (
-            features.select("unique_id").unique().sort("unique_id").head(sample)
-            .collect()["unique_id"].to_list()
+            features.select("unique_id")
+            .unique()
+            .sort("unique_id")
+            .head(sample)
+            .collect()["unique_id"]
+            .to_list()
         )
         features = features.filter(pl.col("unique_id").is_in(ids))
 
@@ -46,9 +56,9 @@ def rolling_origin_backtest(
         cutoff = max_ds - timedelta(days=horizon + i * step)
         window_end = cutoff + timedelta(days=horizon)
         train = features.filter(pl.col("ds") <= cutoff)  # strictly past -> no leakage
-        actuals = features.filter(
-            (pl.col("ds") > cutoff) & (pl.col("ds") <= window_end)
-        ).select("unique_id", "ds", "y")
+        actuals = features.filter((pl.col("ds") > cutoff) & (pl.col("ds") <= window_end)).select(
+            "unique_id", "ds", "y"
+        )
 
         forecast = train_and_forecast_quantiles(train, horizon)
         metrics = evaluate_forecast(train, forecast, actuals, cutoff)
