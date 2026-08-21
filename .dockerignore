@@ -1,0 +1,29 @@
+# Applies to builds whose context is the repo root (the backend image).
+# Keep backend/ and data/processed/; exclude everything else heavy or secret.
+
+.git
+.github
+local-docs
+
+# Frontend is built as its own image (context = frontend/), never needed here.
+frontend
+
+# Python envs, caches, build artifacts
+backend/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/*.egg-info
+backend/mlflow.db
+backend/mlruns
+
+# Raw / intermediate data must NOT be baked into the image (only data/processed is).
+data/raw
+data/interim
+
+# Secrets and local noise
+**/.env
+*.log
+**/.DS_Store
