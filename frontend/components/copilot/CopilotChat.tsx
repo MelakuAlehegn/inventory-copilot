@@ -49,12 +49,14 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
   ],
 };
 
+// Mirrors the agent's real tools (see backend agent/tools.py).
 const TOOLS: { name: string; desc: string }[] = [
-  { name: "forecast_demand", desc: "Quantile demand forecast for an item/store" },
-  { name: "compare_policies", desc: "Base-stock vs naive over the eval window" },
-  { name: "run_simulation", desc: "Deterministic inventory simulation" },
-  { name: "run_what_if", desc: "Parameter shock scenario" },
+  { name: "run_what_if", desc: "One what-if scenario: service + cost metrics" },
+  { name: "compare_policies", desc: "Base-stock vs naive at one setting" },
   { name: "get_pareto_curve", desc: "Cost vs service-level frontier" },
+  { name: "get_inventory_item", desc: "One item's position + reorder recommendation" },
+  { name: "get_item_forecast", desc: "One item's demand forecast over the horizon" },
+  { name: "query_data", desc: "Read-only SQL over historical sales/prices/events" },
 ];
 
 /** One step in the agent's live trajectory: a tool call, its args, and (once run) a result. */
