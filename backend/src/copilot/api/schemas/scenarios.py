@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -25,6 +26,6 @@ class SavedScenarioResponse(BaseModel):
 
     id: uuid.UUID
     name: str
-    params: dict
+    params: dict[str, Any]
     created_at: datetime
     updated_at: datetime

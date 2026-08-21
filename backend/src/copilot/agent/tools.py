@@ -9,6 +9,7 @@ deterministic math by delegating to the tested core — the model never computes
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import polars as pl
 from langchain_core.tools import BaseTool, tool
@@ -23,7 +24,7 @@ from copilot.core.simulation.scenario import Scenario, run_scenario
 _PRECISION = {"fill_rate": 4, "stockout_day_rate": 4, "avg_on_hand": 2, "stockout_units": 1}
 
 
-def _round(metrics: dict) -> dict:
+def _round(metrics: dict[str, Any]) -> dict[str, Any]:
     # Round numeric values for tidiness; pass non-numeric (e.g. the "policy" label) through.
     return {
         k: round(v, _PRECISION.get(k, 2)) if isinstance(v, (int, float)) else v
@@ -49,7 +50,7 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         elasticity: float = 0.0,
         shock_start: str | None = None,
         shock_end: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Run one inventory what-if scenario and return its service and cost metrics.
 
         Use this for any single "what happens if ..." question. Returns fill_rate,
@@ -96,7 +97,7 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
     @tool(parse_docstring=True)
     def compare_policies(
         lead_time: int = 7, review_period: int = 7, service_level: float = 0.95
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Compare the forecast-driven policy against the naive baseline at one setting.
 
         Runs both policies over the holdout with identical settings and returns their
@@ -107,7 +108,9 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
             review_period: days between order reviews.
             service_level: target in-stock probability per cycle, 0-1.
         """
-        common = dict(lead_time=lead_time, review_period=review_period, service_level=service_level)
+        common: dict[str, Any] = dict(
+            lead_time=lead_time, review_period=review_period, service_level=service_level
+        )
         base = run_scenario(
             Scenario(policy="base_stock", **common),
             ctx.actuals,
@@ -135,7 +138,7 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         demand_multiplier: float = 1.0,
         price_multiplier: float = 1.0,
         elasticity: float = 0.0,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Sweep service levels to trace the service-vs-cost trade-off for both policies.
 
         Returns one row per (service_level, policy) with fill_rate and the cost metrics,
@@ -171,9 +174,9 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
             return [_round(row) for row in curve.to_dicts()]
         # Scenario-aware: re-run the simulation at each service level under the given
         # conditions (so a demand shock etc. is reflected, matching what the user runs).
-        rows: list[dict] = []
+        rows: list[dict[str, Any]] = []
         for sl in levels:
-            common = dict(
+            common: dict[str, Any] = dict(
                 lead_time=lead_time,
                 review_period=review_period,
                 service_level=sl,
@@ -219,7 +222,7 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         return _cache["forecast"]
 
     @tool(parse_docstring=True)
-    def get_inventory_item(unique_id: str) -> dict:
+    def get_inventory_item(unique_id: str) -> dict[str, Any]:
         """Look up one item's current inventory position and reorder recommendation.
 
         Use this to explain a specific item (e.g. "why is this item critical?"). Returns
@@ -234,7 +237,7 @@ def build_tools(ctx: CopilotContext) -> list[BaseTool]:
         return rows[0] if rows else {"error": f"no item with id {unique_id!r}"}
 
     @tool(parse_docstring=True)
-    def get_item_forecast(unique_id: str) -> dict:
+    def get_item_forecast(unique_id: str) -> dict[str, Any]:
         """Summarize the demand forecast for one item over the horizon.
 
         Returns total and average daily expected demand (the median q50) and a high-side

@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Iterable, Sequence
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, SystemMessage
+from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -28,14 +30,14 @@ from copilot.db.session import async_session_maker, get_session
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-def context_note(context: dict) -> str:
+def context_note(context: dict[str, Any]) -> str:
     """A one-line note telling the agent what the user is currently viewing."""
     return "Context — the user is currently viewing: " + ", ".join(
         f"{k}={v}" for k, v in context.items()
     )
 
 
-def to_lc_history(rows: Iterable) -> list[AnyMessage]:
+def to_lc_history(rows: Iterable[ChatMessage]) -> list[AnyMessage]:
     """Replay stored user/assistant text turns as LangChain messages (context for the agent).
 
     Past tool calls are not replayed — the agent re-runs tools each turn — so only the
@@ -57,15 +59,15 @@ def _summarize_tool_result(message: AnyMessage) -> str:
 
 
 async def _event_stream(
-    agent,
+    agent: CompiledStateGraph[Any, None, Any, Any],
     history: list[AnyMessage],
     session_id: uuid.UUID,
-    user_id: uuid.UUID,
-) -> AsyncIterator[dict]:
+    user_id: str,
+) -> AsyncIterator[dict[str, Any]]:
     """Run the agent, streaming a staged trajectory (status + tool calls + tool results),
     then the final answer, then persist it."""
     final_text = ""
-    trace: list[dict] = []
+    trace: list[dict[str, Any]] = []
 
     # Trace the run in Langfuse when configured; an empty config (tracing off) is harmless.
     config = observability.trace_config(
@@ -144,7 +146,7 @@ async def chat_stream(
     body: ChatRequest,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-    agent=Depends(get_agent),
+    agent: CompiledStateGraph[Any, None, Any, Any] = Depends(get_agent),
 ) -> EventSourceResponse:
     """Send a message; stream tool steps and the grounded answer; persist the exchange."""
     if body.session_id is not None:
@@ -188,7 +190,7 @@ async def list_sessions(
     page: str | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> Sequence[ChatSession]:
     """List the user's chat sessions, newest first. Filter by origin page when given."""
     query = select(ChatSession).where(ChatSession.user_id == user.id)
     if page:
@@ -203,7 +205,7 @@ async def get_messages(
     session_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> Sequence[ChatMessage]:
     chat = await session.get(ChatSession, session_id)
     if chat is None or chat.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "chat session not found")

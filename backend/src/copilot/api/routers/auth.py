@@ -27,7 +27,7 @@ async def _user_by_email(session: AsyncSession, email: str) -> User | None:
 
 
 @router.post("/register", response_model=AuthUserResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, session: AsyncSession = Depends(get_session)):
+async def register(body: RegisterRequest, session: AsyncSession = Depends(get_session)) -> User:
     """Create an email/password user."""
     if await _user_by_email(session, body.email) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
@@ -44,7 +44,7 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_se
 
 
 @router.post("/login", response_model=AuthUserResponse)
-async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
+async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)) -> User:
     """Verify email/password and return the identity (for Auth.js to build the session)."""
     user = await _user_by_email(session, body.email)
     if (

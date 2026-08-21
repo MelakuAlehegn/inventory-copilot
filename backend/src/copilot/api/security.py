@@ -7,6 +7,8 @@ stable owner to key to. Endpoints depend on ``get_current_user`` to enforce per-
 
 from __future__ import annotations
 
+from typing import Any
+
 import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -30,7 +32,7 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode(), password_hash.encode())
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any]:
     """Verify signature + expiry and return the claims. Raises 401 on any problem."""
     if not settings.auth_jwt_secret:
         raise HTTPException(

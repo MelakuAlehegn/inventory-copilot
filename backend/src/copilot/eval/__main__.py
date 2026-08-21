@@ -9,6 +9,8 @@ Data is loaded once and shared across all layers.
 from __future__ import annotations
 
 import argparse
+from datetime import date
+from typing import Any
 
 import polars as pl
 
@@ -19,7 +21,14 @@ from copilot.eval.decision import decision_report
 from copilot.eval.forecast import evaluate_forecast
 
 
-def _run_agent_layer(forecast, train, actuals_df, prices, cutoff, args) -> dict:
+def _run_agent_layer(
+    forecast: pl.LazyFrame,
+    train: pl.LazyFrame,
+    actuals_df: pl.DataFrame,
+    prices: pl.DataFrame,
+    cutoff: date,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
     """Imported lazily so the default (quota-free) run never touches the LLM stack."""
     from copilot.agent.context import CopilotContext
     from copilot.agent.graph import build_agent

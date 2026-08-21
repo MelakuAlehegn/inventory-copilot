@@ -8,6 +8,7 @@ tables reference for per-user ownership.
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import ForeignKey, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
@@ -42,7 +43,7 @@ class SavedScenario(Base, TimestampMixin):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     name: Mapped[str]
     # The what-if knob values (a Scenario's fields) as JSON.
-    params: Mapped[dict] = mapped_column(JSONB)
+    params: Mapped[dict[str, Any]] = mapped_column(JSONB)
 
     user: Mapped[User] = relationship(back_populates="scenarios")
 
@@ -71,6 +72,6 @@ class ChatMessage(Base, TimestampMixin):
     role: Mapped[str]  # "user" | "assistant" | "tool"
     content: Mapped[str] = mapped_column(Text)
     # Optional trace of the tools the agent ran for this message (name + args + result).
-    tool_calls: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    tool_calls: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     session: Mapped[ChatSession] = relationship(back_populates="messages")

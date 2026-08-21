@@ -8,6 +8,8 @@ so gated for access but not user-scoped.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 
@@ -40,7 +42,9 @@ router = APIRouter(
 
 
 @router.post("/what-if", response_model=MetricsResponse)
-async def what_if(body: ScenarioRequest, ctx: CopilotContext = Depends(get_context)):
+async def what_if(
+    body: ScenarioRequest, ctx: CopilotContext = Depends(get_context)
+) -> MetricsResponse:
     """Run one what-if scenario and return its service and cost metrics."""
     scenario = Scenario(**body.model_dump())
     metrics = await run_in_threadpool(
@@ -56,7 +60,9 @@ async def what_if(body: ScenarioRequest, ctx: CopilotContext = Depends(get_conte
 
 
 @router.post("/compare", response_model=CompareResponse)
-async def compare(body: CompareRequest, ctx: CopilotContext = Depends(get_context)):
+async def compare(
+    body: CompareRequest, ctx: CopilotContext = Depends(get_context)
+) -> CompareResponse:
     """Compare the forecast-driven policy against naive at one setting (default is cached)."""
     is_default = (body.lead_time, body.review_period, body.service_level) == (7, 7, 0.95)
     if is_default:
@@ -76,7 +82,7 @@ async def compare(body: CompareRequest, ctx: CopilotContext = Depends(get_contex
 async def pareto(
     service_levels: list[float] = Query(default=DEFAULT_SERVICE_LEVELS),
     ctx: CopilotContext = Depends(get_context),
-):
+) -> list[dict[str, Any]]:
     """The service-vs-cost trade-off curve for both policies (default levels are cached)."""
     if service_levels == DEFAULT_SERVICE_LEVELS:
         curve = await run_in_threadpool(get_pareto_default)
@@ -94,7 +100,7 @@ async def pareto(
 
 
 @router.get("/scorecard", response_model=ScorecardResponse)
-async def scorecard():
+async def scorecard() -> ScorecardResponse:
     """Headline accuracy (forecast) and decision-quality (policy vs naive) numbers (cached)."""
     s = await run_in_threadpool(get_scorecard)
     return ScorecardResponse(

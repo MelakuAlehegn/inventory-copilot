@@ -35,7 +35,8 @@ export function TopBar({
     setTheme(next);
   };
 
-  const showAsk = pathname !== "/copilot";
+  // No copilot on the full /copilot page (it IS the copilot) or on settings (nothing to ask).
+  const showAsk = pathname !== "/copilot" && !pathname.startsWith("/settings");
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border bg-surface/85 px-6 py-3 backdrop-blur">

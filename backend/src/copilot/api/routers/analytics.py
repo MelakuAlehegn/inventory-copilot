@@ -6,7 +6,7 @@ user-scoped. Queries run in a threadpool since DuckDB calls are blocking.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
@@ -28,7 +28,7 @@ router = APIRouter(
 
 
 @router.get("/kpis", response_model=KpisResponse)
-async def get_kpis():
+async def get_kpis() -> dict[str, Any]:
     """Headline dataset KPIs (series/stores counts, date range, totals) — cached."""
     return await run_in_threadpool(get_kpis_cached)
 
@@ -37,13 +37,13 @@ async def get_kpis():
 async def get_top_series(
     metric: Literal["revenue", "units"] = "revenue",
     limit: int = Query(default=10, ge=1, le=100),
-):
+) -> list[dict[str, Any]]:
     """Top series (item x store) by revenue or units."""
     return await run_in_threadpool(analytics.top_series, metric, limit)
 
 
 @router.get("/series/{unique_id}", response_model=SeriesDetailResponse)
-async def get_series(unique_id: str):
+async def get_series(unique_id: str) -> dict[str, Any]:
     """Per-series drilldown: daily units/revenue time series + summary."""
     detail = await run_in_threadpool(analytics.series_detail, unique_id)
     if detail is None:
@@ -52,6 +52,6 @@ async def get_series(unique_id: str):
 
 
 @router.get("/stores", response_model=list[StoreRow])
-async def get_stores():
+async def get_stores() -> list[dict[str, Any]]:
     """Per-store totals."""
     return await run_in_threadpool(analytics.stores)

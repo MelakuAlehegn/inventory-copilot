@@ -7,6 +7,8 @@ Auth-gated (internal tool); the table is precomputed, so filtering here is cheap
 
 from __future__ import annotations
 
+from typing import Any
+
 import polars as pl
 from fastapi import APIRouter, Depends, Query
 
@@ -20,7 +22,9 @@ router = APIRouter(
 
 
 @router.get("/summary", response_model=InventorySummary)
-async def inventory_summary(table: pl.DataFrame = Depends(get_inventory_table)):
+async def inventory_summary(
+    table: pl.DataFrame = Depends(get_inventory_table),
+) -> InventorySummary:
     """Per-status counts only — cheap, so the sidebar badge / dashboard tiles don't pull rows."""
     counts = dict(table.group_by("status").len().iter_rows())  # {status: n}
     critical = counts.get("critical", 0)
@@ -43,7 +47,7 @@ async def inventory(
     limit: int = Query(default=50, ge=1, le=5000),
     offset: int = Query(default=0, ge=0),
     table: pl.DataFrame = Depends(get_inventory_table),
-):
+) -> list[dict[str, Any]]:
     """Per-series recommendations + simulated position, optionally filtered and paginated."""
     df = table
     if status:

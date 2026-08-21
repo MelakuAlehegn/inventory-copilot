@@ -13,6 +13,8 @@ judge can be validated without running the whole agent over the full gold set.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
@@ -43,7 +45,7 @@ class Verdict(BaseModel):
     reason: str = Field(description="one short sentence justifying the rating")
 
 
-def judge_answer(question: str, answer: str, tool_context: str = "", model=None) -> Verdict:
+def judge_answer(question: str, answer: str, tool_context: str = "", model: Any = None) -> Verdict:
     """Ask the judge model to assess one answer; returns a structured Verdict."""
     judge = (model or get_chat_model()).with_structured_output(Verdict)
     payload = (
@@ -51,7 +53,8 @@ def judge_answer(question: str, answer: str, tool_context: str = "", model=None)
         f"TOOL RESULTS:\n{tool_context or '(no tools were used)'}\n\n"
         f"ASSISTANT ANSWER:\n{answer}"
     )
-    return judge.invoke([SystemMessage(_JUDGE_SYSTEM), HumanMessage(payload)])
+    # with_structured_output(Verdict) yields Verdict at runtime, but is typed as a loose union.
+    return cast(Verdict, judge.invoke([SystemMessage(_JUDGE_SYSTEM), HumanMessage(payload)]))
 
 
 # Canned cases so the judge can be validated cheaply, without running the full agent.

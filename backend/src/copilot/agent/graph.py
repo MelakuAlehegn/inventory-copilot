@@ -19,7 +19,7 @@ The loop from step 4, now with a grounding referee before any answer escapes:
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, TypedDict, cast
 
 from langchain_core.messages import (
     AIMessage,
@@ -30,6 +30,7 @@ from langchain_core.messages import (
 )
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langgraph.graph.state import CompiledStateGraph
 
 from copilot.agent.context import CopilotContext
 from copilot.agent.grounding import check_grounding, grounded_numbers
@@ -49,8 +50,8 @@ class AgentState(TypedDict):
 
 def _system_prompt(ctx: CopilotContext) -> str:
     """Role + the golden rule, with the real horizon dates filled in from the context."""
-    start: date = ctx.actuals["ds"].min()
-    end: date = ctx.actuals["ds"].max()
+    start = cast(date, ctx.actuals["ds"].min())
+    end = cast(date, ctx.actuals["ds"].max())
     return (
         "You are an inventory-planning copilot for a retail dataset (M5 'FOODS' category, "
         "all stores). You help people understand inventory decisions by running tools.\n\n"
@@ -117,7 +118,7 @@ def _should_continue(state: AgentState) -> str:
     return "tools" if getattr(last, "tool_calls", None) else "answer"
 
 
-def _grounding(state: AgentState) -> dict:
+def _grounding(state: AgentState) -> dict[str, Any]:
     """Referee: verify the answer's numbers; pass, ask for one do-over, or fail honestly."""
     messages = state["messages"]
     answer = message_text(messages[-1])
@@ -147,7 +148,9 @@ def _route_after_grounding(state: AgentState) -> str:
     return state.get("route", "end")
 
 
-def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None):
+def build_agent(
+    ctx: CopilotContext, model: Any = None, checkpointer: Any = None
+) -> CompiledStateGraph[Any, None, Any, Any]:
     """Build and compile the copilot agent graph for a loaded data context."""
     model = model or get_chat_model()
     tools = build_tools(ctx)
@@ -155,16 +158,17 @@ def build_agent(ctx: CopilotContext, model: Any = None, checkpointer: Any = None
     tools_by_name = {t.name: t for t in tools}
     system_prompt = _system_prompt(ctx)
 
-    def agent(state: AgentState) -> dict:
+    def agent(state: AgentState) -> dict[str, Any]:
         """Brain: prepend the system prompt and let the LLM respond."""
         messages = [SystemMessage(system_prompt), *state["messages"]]
         return {"messages": [model_with_tools.invoke(messages)]}
 
-    def tools_node(state: AgentState) -> dict:
+    def tools_node(state: AgentState) -> dict[str, Any]:
         """Hands: run every tool the brain's last message asked for."""
         last = state["messages"][-1]
         outputs: list[ToolMessage] = []
-        for call in last.tool_calls:
+        tool_calls = last.tool_calls if isinstance(last, AIMessage) else []
+        for call in tool_calls:
             result = tools_by_name[call["name"]].invoke(call["args"])
             outputs.append(
                 ToolMessage(content=str(result), tool_call_id=call["id"], name=call["name"])

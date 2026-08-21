@@ -7,6 +7,8 @@ data, so gated for access (internal tool) but not user-scoped; CPU work runs in 
 
 from __future__ import annotations
 
+from typing import Any
+
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
@@ -21,7 +23,7 @@ router = APIRouter(prefix="/forecast", tags=["forecast"], dependencies=[Depends(
 _QCOLS = ["q50", "q80", "q90", "q95", "q99"]
 
 
-def _series_points(ctx: CopilotContext, unique_id: str) -> list[dict] | None:
+def _series_points(ctx: CopilotContext, unique_id: str) -> list[dict[str, Any]] | None:
     """Quantiles joined to actuals for one series over the horizon; None if unknown."""
     fc = (
         ctx.forecast.filter(pl.col("unique_id") == unique_id)
@@ -38,20 +40,22 @@ def _series_points(ctx: CopilotContext, unique_id: str) -> list[dict] | None:
 
 
 @router.get("/summary", response_model=ForecastSummary)
-async def summary():
+async def summary() -> ForecastSummary:
     """Headline forecast accuracy vs the seasonal-naive baseline (cached)."""
     scores = await run_in_threadpool(get_forecast_summary)
     return ForecastSummary(**scores)
 
 
 @router.get("/options", response_model=SeriesOptions)
-async def options():
+async def options() -> dict[str, Any]:
     """Distinct item and store ids for the series selector (cached)."""
     return await run_in_threadpool(get_series_options)
 
 
 @router.get("/series/{unique_id}", response_model=ForecastSeriesResponse)
-async def series(unique_id: str, ctx: CopilotContext = Depends(get_context)):
+async def series(
+    unique_id: str, ctx: CopilotContext = Depends(get_context)
+) -> ForecastSeriesResponse:
     """Per-series quantile bands (q50..q99) with realized actuals over the horizon."""
     points = await run_in_threadpool(_series_points, ctx, unique_id)
     if points is None:

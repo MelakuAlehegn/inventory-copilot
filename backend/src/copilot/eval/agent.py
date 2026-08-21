@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from typing import Any
 
 import polars as pl
 from langchain_core.messages import AnyMessage, ToolMessage
@@ -61,7 +62,7 @@ def _tool_context(messages: list[AnyMessage]) -> str:
     return "\n".join(lines)
 
 
-def evaluate_question(agent, gold: GoldQuestion, judge_model=None) -> dict:
+def evaluate_question(agent: Any, gold: GoldQuestion, judge_model: Any = None) -> dict[str, Any]:
     """Run one question through the agent and score it (optionally with the LLM-judge)."""
     result = agent.invoke({"messages": [("user", gold.question)]})
     messages = result["messages"]
@@ -91,11 +92,15 @@ def evaluate_question(agent, gold: GoldQuestion, judge_model=None) -> dict:
 
 
 def run_eval(
-    agent, gold: list[GoldQuestion], sleep: float = 0.0, limit: int | None = None, judge_model=None
-) -> list[dict]:
+    agent: Any,
+    gold: list[GoldQuestion],
+    sleep: float = 0.0,
+    limit: int | None = None,
+    judge_model: Any = None,
+) -> list[dict[str, Any]]:
     """Score every question, optionally pausing `sleep` seconds between them."""
     items = gold[:limit] if limit else gold
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for i, g in enumerate(items):
         print(f"  [{i + 1}/{len(items)}] {g.id} ...", flush=True)
         try:

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from langchain_core.runnables import RunnableConfig
+
 from copilot.config import settings
 
 if TYPE_CHECKING:
@@ -62,7 +64,7 @@ def trace_config(
     session_id: str | None = None,
     user_id: str | None = None,
     tags: list[str] | None = None,
-) -> dict[str, Any]:
+) -> RunnableConfig:
     """Build the LangChain run config that attaches the tracer and labels the trace.
 
     Returns an empty dict when tracing is off, so it can always be spread into an invocation.

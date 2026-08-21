@@ -12,9 +12,10 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 import polars as pl
+from langgraph.graph.state import CompiledStateGraph
 
 from copilot.agent.context import CopilotContext, load_context
 from copilot.agent.graph import build_agent
@@ -33,19 +34,19 @@ _cache: dict[str, Any] = {}
 _lock = threading.RLock()  # reentrant so memoized getters can call each other
 
 
-def _memo(key: str, compute: Callable[[], Any]) -> Any:
+def _memo[T](key: str, compute: Callable[[], T]) -> T:
     if key not in _cache:
         with _lock:
             if key not in _cache:
                 _cache[key] = compute()
-    return _cache[key]
+    return cast(T, _cache[key])  # _cache stores Any; recover the precise T from compute
 
 
 def get_context() -> CopilotContext:
     return _memo("context", load_context)
 
 
-def get_agent():
+def get_agent() -> CompiledStateGraph[Any, None, Any, Any]:
     return _memo("agent", lambda: build_agent(get_context()))
 
 
@@ -57,7 +58,7 @@ def get_inventory_table() -> pl.DataFrame:
     )
 
 
-def get_forecast_summary() -> dict:
+def get_forecast_summary() -> dict[str, float]:
     ctx = get_context()
     return _memo(
         "forecast_summary",
@@ -65,7 +66,7 @@ def get_forecast_summary() -> dict:
     )
 
 
-def get_decision_report() -> tuple[dict, pl.DataFrame]:
+def get_decision_report() -> tuple[dict[str, float], pl.DataFrame]:
     """(headline summary, full Pareto curve) at default service levels — computed once."""
     ctx = get_context()
     return _memo(
@@ -74,7 +75,7 @@ def get_decision_report() -> tuple[dict, pl.DataFrame]:
     )
 
 
-def get_scorecard() -> dict:
+def get_scorecard() -> dict[str, dict[str, float]]:
     return _memo(
         "scorecard",
         lambda: {"forecast": get_forecast_summary(), "decision": get_decision_report()[0]},
@@ -85,19 +86,21 @@ def get_pareto_default() -> pl.DataFrame:
     return _memo("pareto", lambda: get_decision_report()[1])
 
 
-def get_kpis() -> dict:
+def get_kpis() -> dict[str, Any]:
     return _memo("kpis", analytics.kpis)
 
 
-def get_series_options() -> dict:
+def get_series_options() -> dict[str, Any]:
     return _memo("series_options", analytics.series_options)
 
 
 def compare_metrics(
     ctx: CopilotContext, lead_time: int, review_period: int, service_level: float
-) -> dict:
+) -> dict[str, dict[str, float]]:
     """base_stock vs naive at one setting (used by the endpoint and the default cache)."""
-    common = dict(lead_time=lead_time, review_period=review_period, service_level=service_level)
+    common: dict[str, Any] = dict(
+        lead_time=lead_time, review_period=review_period, service_level=service_level
+    )
     base = run_scenario(
         Scenario(policy="base_stock", **common),
         ctx.actuals,
@@ -118,7 +121,7 @@ def compare_metrics(
     return {"base_stock": base, "naive": naive, "delta": delta}
 
 
-def get_compare_default() -> dict:
+def get_compare_default() -> dict[str, dict[str, float]]:
     ctx = get_context()
     p = PolicyParams()
     return _memo(

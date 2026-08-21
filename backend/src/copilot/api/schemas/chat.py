@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -13,7 +14,7 @@ class ChatRequest(BaseModel):
     session_id: uuid.UUID | None = None  # omit to start a new conversation
     # What the user is currently viewing (e.g. {"page": "inventory", "item": "FOODS_3_090_CA_3"})
     # so the copilot can resolve "this item". Optional.
-    context: dict | None = None
+    context: dict[str, Any] | None = None
 
 
 class ChatSessionResponse(BaseModel):
@@ -31,5 +32,5 @@ class ChatMessageResponse(BaseModel):
     id: int
     role: str
     content: str
-    tool_calls: dict | None
+    tool_calls: dict[str, Any] | None
     created_at: datetime

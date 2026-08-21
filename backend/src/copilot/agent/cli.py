@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import Any
 
 from langchain_core.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
 
 from copilot.agent.context import load_context
 from copilot.agent.graph import build_agent, message_text
@@ -22,11 +25,11 @@ except ImportError:  # pragma: no cover
     from langgraph.checkpoint.memory import MemorySaver
 
 _DIM, _BOLD, _RESET = "\033[2m", "\033[1m", "\033[0m"
-_THREAD = {"configurable": {"thread_id": "cli-session"}}
+_THREAD: RunnableConfig = {"configurable": {"thread_id": "cli-session"}}
 _QUIT = {"exit", "quit", "q", ":q"}
 
 
-def _answer(agent, question: str, show_steps: bool) -> str:
+def _answer(agent: CompiledStateGraph[Any, None, Any, Any], question: str, show_steps: bool) -> str:
     """Run one turn; print tool steps as they stream; return the final verified answer."""
     final = ""
     for chunk in agent.stream({"messages": [("user", question)]}, _THREAD, stream_mode="updates"):

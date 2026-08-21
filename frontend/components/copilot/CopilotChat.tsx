@@ -10,13 +10,44 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/components/app/modal";
 
-const SUGGESTIONS = [
+// Shown on the full /copilot workspace and as a fallback for any unrecognized page.
+const DEFAULT_SUGGESTIONS = [
   "Compare base-stock vs naive at 95% service level",
   "What if demand increases by 30%?",
   "Run the Pareto curve across service levels 90%–99%",
   "What safety stock do we need at 99% service level?",
   "Explain why the forecast-driven policy beats naive",
 ];
+
+// Page-relevant starters for the docked panel, so each page suggests what it is good for.
+const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
+  dashboard: [
+    "Why does the forecast-driven policy beat the naive baseline?",
+    "Compare base-stock vs naive at 95% service level",
+    "What is the trade-off between cost and service level?",
+  ],
+  analytics: [
+    "Compare base-stock vs naive at 95% service level",
+    "Run the Pareto curve across service levels 90%–99%",
+    "What if demand runs 20% hotter than forecast?",
+  ],
+  forecast: [
+    "Why is the forecast-driven policy more accurate than naive?",
+    "What if demand increases by 30%?",
+    "What safety stock covers demand at the 99% service level?",
+  ],
+  inventory: [
+    "What safety stock do we need at 99% service level?",
+    "How does a longer lead time change our stock cover?",
+    "Compare base-stock vs naive at 95% service level",
+  ],
+  scenarios: [
+    "What if demand increases by 30%?",
+    "Run the Pareto curve across service levels 90%–99%",
+    "What setup reaches a 93% fill rate under a demand shock?",
+    "How does raising the service level change total cost?",
+  ],
+};
 
 const TOOLS: { name: string; desc: string }[] = [
   { name: "forecast_demand", desc: "Quantile demand forecast for an item/store" },
@@ -323,6 +354,12 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     }
   }, [pendingPrefill]);
 
+  // Page-aware starters: the docked panel uses the current page's list (falling back to the
+  // generic set); the full /copilot workspace always shows the generic set.
+  const contextPage = context?.page ? String(context.page) : "";
+  const pageSuggestions = SUGGESTIONS_BY_PAGE[contextPage] ?? DEFAULT_SUGGESTIONS;
+  const suggestions = isPanel ? pageSuggestions.slice(0, 3) : DEFAULT_SUGGESTIONS;
+
   const welcome = (
     <div className={isPanel ? "space-y-5" : "space-y-6"}>
       {!isPanel ? (
@@ -336,7 +373,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
       <div>
         <p className="label-eyebrow mb-2">Try asking</p>
         <ul className="space-y-1.5">
-          {(isPanel ? SUGGESTIONS.slice(0, 3) : SUGGESTIONS).map((s) => (
+          {suggestions.map((s) => (
             <li key={s}>
               <button
                 onClick={() => sendMessage(s)}

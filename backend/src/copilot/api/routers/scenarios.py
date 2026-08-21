@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -33,7 +34,7 @@ async def create_scenario(
     body: ScenarioCreate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> SavedScenario:
     scenario = SavedScenario(
         user_id=user.id, name=body.name, params=body.params.model_dump(mode="json")
     )
@@ -46,7 +47,7 @@ async def create_scenario(
 @router.get("", response_model=list[SavedScenarioResponse])
 async def list_scenarios(
     user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
-):
+) -> Sequence[SavedScenario]:
     rows = (
         (
             await session.execute(
@@ -66,7 +67,7 @@ async def get_scenario(
     scenario_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> SavedScenario:
     return await _get_owned(session, scenario_id, user)
 
 
@@ -76,7 +77,7 @@ async def update_scenario(
     body: ScenarioUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> SavedScenario:
     scenario = await _get_owned(session, scenario_id, user)
     if body.name is not None:
         scenario.name = body.name
@@ -92,7 +93,7 @@ async def delete_scenario(
     scenario_id: uuid.UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-):
+) -> None:
     scenario = await _get_owned(session, scenario_id, user)
     await session.delete(scenario)
     await session.commit()

@@ -14,7 +14,8 @@ const WIDTH_KEY = "copilot-dock-w";
 /**
  * The collapsible left-docked copilot: an in-flow column between the nav rail and the page
  * content, so opening it naturally shifts the data right. Width is drag-resizable (persisted).
- * Hidden on `/copilot`. Renders the real SSE-backed CopilotChat, grounded on the page context.
+ * Hidden on `/copilot` and `/settings`. Renders the real SSE-backed CopilotChat, grounded on
+ * the page context.
  */
 export default function CopilotDock() {
   const { open, context, pendingPrefill, closePanel } = useCopilot();
@@ -53,7 +54,7 @@ export default function CopilotDock() {
     document.addEventListener("mouseup", onUp);
   };
 
-  if (pathname === "/copilot" || !open) return null;
+  if (pathname === "/copilot" || pathname.startsWith("/settings") || !open) return null;
 
   return (
     <aside style={{ width }} className="relative flex shrink-0 flex-col border-r border-border bg-surface">
