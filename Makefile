@@ -1,5 +1,5 @@
-# Retail Demand & Inventory Copilot — top-level task runner.
-# Delegates to backend/ (Python, uv) and frontend/ (Next.js, pnpm).
+# Retail Demand & Inventory Copilot - top-level task runner.
+# Delegates to backend/ (Python, uv) and frontend/ (Next.js).
 # Run `make help` to see all tasks.
 
 .DEFAULT_GOAL := help
@@ -8,7 +8,7 @@
         train backtest simulate eval \
         api web dev mcp \
         test lint fmt typecheck check \
-        deploy clean
+        clean
 
 BACKEND  := backend
 FRONTEND := frontend
@@ -27,8 +27,8 @@ setup: ## Install backend (uv) and frontend (pnpm) dependencies
 	$(MAKE) -C $(BACKEND) install
 	$(MAKE) -C $(FRONTEND) install
 
-up: ## Start local deps (Postgres, Ollama, Langfuse) via Docker Compose
-	docker compose up -d
+up: ## Start Postgres for local dev via Docker Compose
+	docker compose up -d postgres
 
 down: ## Stop local deps
 	docker compose down
@@ -97,12 +97,6 @@ typecheck: ## Type-check backend (mypy) + frontend (tsc)
 	$(MAKE) -C $(FRONTEND) typecheck
 
 check: lint typecheck test ## Run all quality gates
-
-## ----------------------------------------------------------------------------
-## Deployment
-## ----------------------------------------------------------------------------
-deploy: ## Deploy to Fly.io (see infra/)
-	$(MAKE) -C infra deploy
 
 clean: ## Remove build artifacts and caches
 	$(MAKE) -C $(BACKEND) clean

@@ -116,7 +116,7 @@ Then run the whole stack (frontend + backend + database) with Docker:
 
 ```bash
 cp .env.example .env    # fill in GOOGLE_API_KEY, AUTH_JWT_SECRET, AUTH_SECRET, Google OAuth
-docker compose -f docker-compose.app.yml up --build
+docker compose up --build
 
 # one time, create the database tables:
 DATABASE_MIGRATION_URL=postgresql+psycopg://copilot:copilot@localhost:5432/copilot make db-upgrade
@@ -145,8 +145,7 @@ inventory-copilot/
 ├── backend/               # Python: calculation core, AI agent, API, evaluation
 ├── frontend/              # Next.js app: auth, dashboards, streaming chat
 ├── data/                  # data lifecycle (raw + processed are gitignored)
-├── docker-compose.app.yml # run the full stack (frontend + backend + Postgres)
-├── docker-compose.yml     # local dependencies only (Postgres, etc.)
+├── docker-compose.yml     # run the full stack (frontend + backend + Postgres)
 └── Makefile               # task runner - `make help`
 ```
 

@@ -1,5 +1,6 @@
-# Local development dependencies.
-# Prod uses Neon (Postgres), Groq (LLM), and Langfuse Cloud instead of these.
+# Run the full stack locally:  docker compose up --build
+# Or just the database (for `make dev`):  docker compose up -d postgres
+# Secrets are read from a root .env (see .env.example).
 services:
   postgres:
     image: postgres:16
@@ -15,30 +16,42 @@ services:
       test: ["CMD-SHELL", "pg_isready -U copilot"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama:/root/.ollama
-    # After `make up`, pull a model:  docker compose exec ollama ollama pull qwen2.5:7b-instruct
-
-  # Optional local Langfuse (LLM tracing). Comment out to use Langfuse Cloud instead.
-  langfuse:
-    image: langfuse/langfuse:latest
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "3001:3000"
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000  # baked into the browser bundle at build
     environment:
-      DATABASE_URL: postgresql://copilot:copilot@postgres:5432/copilot
-      NEXTAUTH_URL: http://localhost:3001
-      NEXTAUTH_SECRET: dev-secret-change-me
-      SALT: dev-salt-change-me
+      API_BASE_URL: http://backend:8000  # server-side calls reach the backend by service name
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
 
 volumes:
   pgdata:
-  ollama:
