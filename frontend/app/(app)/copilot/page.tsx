@@ -16,7 +16,7 @@ function CopilotInner() {
     <>
       <TopBar
         title="Copilot"
-        subtitle="Grounded answers · every number produced by a verified tool call"
+        subtitle="Ask about forecasts, inventory, and what-if scenarios"
         actions={
           <Button variant="outline" size="sm" onClick={() => setResetKey((k) => k + 1)} id="copilot-new-chat">
             <Plus className="size-4" /> New chat

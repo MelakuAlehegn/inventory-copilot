@@ -203,9 +203,9 @@ export default function SettingsPage() {
           <PanelHeader title="About" subtitle="Inventory Copilot v1.0" />
           <div className="px-5 py-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
-              A retail decision-intelligence system: quantile demand forecasting, base-stock safety-stock
-              optimization, deterministic inventory simulation, and a grounded AI copilot that only reports
-              numbers computed from real tool outputs.
+              Forecasts demand, recommends how much stock to keep, and lets you test what-if
+              scenarios. An AI assistant explains the results, using only numbers the system
+              actually calculated.
             </p>
           </div>
         </Panel>

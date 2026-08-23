@@ -15,8 +15,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ItemDrawer } from "@/components/inventory/ItemDrawer";
 import { ExportCsvButton } from "@/components/app/export-csv-button";
+import { TermLabel } from "@/components/ui/info-tip";
+import type { Term } from "@/lib/glossary";
 
 const PAGE_SIZES = [25, 50, 100, 200];
+
+// Table columns. `term` attaches the plain-English tooltip from the shared glossary.
+const COLUMNS: { label: string; term?: Term; right?: boolean }[] = [
+  { label: "Item" },
+  { label: "Store" },
+  { label: "Stock", right: true },
+  { label: "Reorder level", term: "reorder_level", right: true },
+  { label: "Safety stock", term: "safety_stock", right: true },
+  { label: "Target max", term: "target_max", right: true },
+  { label: "Suggested order", term: "suggested_order", right: true },
+  { label: "Avg sold/day", right: true },
+  { label: "Days of stock left", term: "days_of_stock", right: true },
+  { label: "Status", right: true },
+];
 
 const TABS: { key: InventoryStatus | ""; label: string }[] = [
   { key: "", label: "All" },
@@ -109,7 +125,7 @@ export default function InventoryClient() {
     <>
       <TopBar
         title="Inventory"
-        subtitle="Base-stock policy · reorder point, safety stock and recommended orders"
+        subtitle="Smart reordering: when to reorder, how much buffer to keep, and how much to order"
         actions={
           <>
             <ExportCsvButton filename="inventory" rows={csvRows} label="Export" />
@@ -122,10 +138,10 @@ export default function InventoryClient() {
 
       <div className="space-y-5 p-6">
         <KpiStrip>
-          <Kpi label="Critical" value={fmt(counts.critical)} tone="danger" hint="Stockout imminent" />
-          <Kpi label="Reorder soon" value={fmt(counts.reorder)} tone="warning" hint="At or below reorder point" />
-          <Kpi label="Healthy" value={fmt(counts.healthy)} tone="success" hint="Within policy band" />
-          <Kpi label="Overstock" value={fmt(counts.overstock)} hint="Above order-up-to" />
+          <Kpi label="Critical" value={fmt(counts.critical)} tone="danger" hint="About to run out" />
+          <Kpi label="Reorder soon" value={fmt(counts.reorder)} tone="warning" hint="At or below the reorder level" />
+          <Kpi label="Healthy" value={fmt(counts.healthy)} tone="success" hint="Stock is in the target range" />
+          <Kpi label="Overstock" value={fmt(counts.overstock)} hint="Above the target max" />
         </KpiStrip>
 
         <Panel>
@@ -183,8 +199,10 @@ export default function InventoryClient() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    {["Item", "Store", "Stock", "Reorder pt.", "Safety", "Order up to", "Rec. order", "Mean/day", "Days left", "Status"].map((h, i) => (
-                      <th key={h} className={`label-eyebrow whitespace-nowrap px-4 py-2.5 ${i > 1 ? "text-right" : ""}`}>{h}</th>
+                    {COLUMNS.map((c) => (
+                      <th key={c.label} className={cn("label-eyebrow whitespace-nowrap px-4 py-2.5", c.right && "text-right")}>
+                        {c.term ? <TermLabel term={c.term}>{c.label}</TermLabel> : c.label}
+                      </th>
                     ))}
                   </tr>
                 </thead>

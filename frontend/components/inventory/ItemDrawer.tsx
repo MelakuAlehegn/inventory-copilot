@@ -106,7 +106,7 @@ export function ItemDrawer({ item, onClose }: Props) {
             {item.days_until_stockout != null ? (
               <span className={`flex items-center gap-1.5 text-sm font-semibold ${item.days_until_stockout <= 3 ? "text-danger" : "text-warning"}`}>
                 <Clock className="size-3.5" />
-                {Math.round(item.days_until_stockout)}d until stockout
+                {Math.round(item.days_until_stockout)} days until out of stock
               </span>
             ) : null}
           </div>
@@ -115,10 +115,10 @@ export function ItemDrawer({ item, onClose }: Props) {
           <div className="mb-6">
             <div className="mb-2 flex justify-between text-xs text-muted-foreground">
               <span>Stock level</span>
-              <span className="num">{fmtNumber(item.current_stock)} / {fmtNumber(item.order_up_to)} (order-up-to)</span>
+              <span className="num">{fmtNumber(item.current_stock)} / {fmtNumber(item.order_up_to)} (target max)</span>
             </div>
             <div className="relative h-2.5 overflow-hidden rounded-full bg-surface-2">
-              <div className="absolute inset-y-0 z-10 w-0.5 bg-warning" style={{ left: `${reorderPct}%` }} title={`Reorder point: ${fmtNumber(item.reorder_point)}`} />
+              <div className="absolute inset-y-0 z-10 w-0.5 bg-warning" style={{ left: `${reorderPct}%` }} title={`Reorder level: ${fmtNumber(item.reorder_point)}`} />
               <div
                 className={`h-full rounded-full ${item.status === "critical" ? "bg-danger" : item.status === "reorder" ? "bg-warning" : item.status === "overstock" ? "bg-info" : "bg-success"}`}
                 style={{ width: `${stockPct}%` }}
@@ -126,29 +126,29 @@ export function ItemDrawer({ item, onClose }: Props) {
             </div>
             <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
               <span>0</span>
-              <span className="text-warning">▲ reorder ({fmtNumber(item.reorder_point)})</span>
+              <span className="text-warning">▲ reorder at {fmtNumber(item.reorder_point)}</span>
               <span>{fmtNumber(item.order_up_to)}</span>
             </div>
           </div>
 
-          <p className="label-eyebrow mb-1">Inventory position</p>
+          <p className="label-eyebrow mb-1">Stock levels</p>
           <div className="mb-5">
             <MetricRow label="Current stock" value={fmtNumber(item.current_stock)} />
-            <MetricRow label="Safety stock" value={fmtNumber(item.safety_stock)} sub="Buffer against demand variability" />
-            <MetricRow label="Reorder point" value={fmtNumber(item.reorder_point)} sub="Order when stock falls to this level" />
-            <MetricRow label="Order-up-to" value={fmtNumber(item.order_up_to)} sub="Target level after replenishment" />
-            <MetricRow label="Recommended order qty" value={<span className="text-primary">{fmtNumber(item.recommended_order_qty)}</span>} sub="Units to order now" />
+            <MetricRow label="Safety stock" value={fmtNumber(item.safety_stock)} sub="Buffer for ups and downs in demand" />
+            <MetricRow label="Reorder level" value={fmtNumber(item.reorder_point)} sub="Order when stock falls to this level" />
+            <MetricRow label="Target max" value={fmtNumber(item.order_up_to)} sub="Level to refill up to when you reorder" />
+            <MetricRow label="Suggested order" value={<span className="text-primary">{fmtNumber(item.recommended_order_qty)}</span>} sub="Units to order now" />
           </div>
 
-          <p className="label-eyebrow mb-1">Demand &amp; price</p>
+          <p className="label-eyebrow mb-1">Sales &amp; price</p>
           <div className="mb-5">
-            <MetricRow label="Mean daily demand" value={item.mean_daily_demand.toFixed(2)} sub="Average units sold per day" />
+            <MetricRow label="Average daily sales" value={item.mean_daily_demand.toFixed(2)} sub="Units sold per day, on average" />
             <MetricRow label="Unit price" value={item.unit_price != null ? fmtCurrency(item.unit_price) : "-"} />
           </div>
 
           <p className="label-eyebrow mb-1">Item info</p>
           <div>
-            <MetricRow label="Series ID" value={<span className="text-xs">{item.unique_id}</span>} />
+            <MetricRow label="Product-store ID" value={<span className="text-xs">{item.unique_id}</span>} />
             <MetricRow label="Store" value={item.store_id} />
             <MetricRow label="Category" value={categoryOf(item.item_id)} />
           </div>

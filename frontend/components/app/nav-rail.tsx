@@ -101,7 +101,7 @@ export function NavRail({ alertCount = 0 }: { alertCount?: number }) {
         {!collapsed ? (
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-bold leading-tight">Inventory Copilot</p>
-            <p className="num mt-0.5 text-[10px] tracking-wide text-muted-foreground">M5 · FOODS · 14K SERIES</p>
+            <p className="num mt-0.5 text-[10px] tracking-wide text-muted-foreground">WALMART FOODS · 14K PRODUCT LINES</p>
           </div>
         ) : null}
       </div>

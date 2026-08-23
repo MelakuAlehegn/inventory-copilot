@@ -33,7 +33,7 @@ export default async function ForecastPage() {
   } catch {
     return (
       <>
-        <TopBar title="Forecast" subtitle="LightGBM quantile model" />
+        <TopBar title="Forecast" subtitle="Demand forecast" />
         <div className="p-6">
           <Panel className="flex flex-col items-center gap-2 px-6 py-20 text-center">
             <p className="text-sm font-medium">Couldn&apos;t load data</p>
@@ -50,7 +50,7 @@ export default async function ForecastPage() {
     <>
       <TopBar
         title="Forecast"
-        subtitle={`LightGBM quantile model · ${summary.n_series.toLocaleString()} FOODS series`}
+        subtitle={`Demand forecast · ${summary.n_series.toLocaleString()} product lines`}
       />
 
       <div className="space-y-5 p-6">

@@ -62,7 +62,7 @@ export default function CopilotDock() {
         <div className="min-w-0">
           <p className="text-sm font-semibold">Copilot</p>
           <p className="truncate text-[11px] text-muted-foreground">
-            Grounded on <span className="num">{String(context.item_id ?? context.page)}</span>
+            Ask about <span className="num">{String(context.item_id ?? context.page)}</span>
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={closePanel} aria-label="Close copilot">

@@ -366,9 +366,9 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     <div className={isPanel ? "space-y-5" : "space-y-6"}>
       {!isPanel ? (
         <div>
-          <h2 className="text-base font-semibold">Grounded inventory agent</h2>
+          <h2 className="text-base font-semibold">How can I help?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ask about demand forecasts, inventory policy, and what-if scenarios. Every number is computed by a real tool, so the agent never invents a figure.
+            Ask about demand forecasts, inventory decisions, and what-if scenarios.
           </p>
         </div>
       ) : null}
@@ -543,7 +543,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 px-1 text-[11px] text-muted-foreground">Grounding guardrail active; fabricated numbers are blocked.</p>
+              <p className="mt-3 px-1 text-[11px] text-muted-foreground">Every figure is calculated from your data.</p>
             </>
           ) : null}
         </div>

@@ -250,11 +250,11 @@ export default function ScenariosPage() {
 
   const ParetoPanel = (
     <Panel>
-      <PanelHeader title="Cost vs service level" subtitle={`Pareto frontier · ${policyLabel(paramsA.policy)} across service levels`} />
+      <PanelHeader title="Cost vs service level" subtitle={`Best trade-off curve · ${policyLabel(paramsA.policy)} across service levels`} />
       {pareto.length ? (
         <ParetoChartWrapper data={pareto} policies={[paramsA.policy]} />
       ) : (
-        <p className="px-5 py-16 text-center text-sm text-muted-foreground">Frontier unavailable.</p>
+        <p className="px-5 py-16 text-center text-sm text-muted-foreground">Trade-off curve unavailable.</p>
       )}
     </Panel>
   );

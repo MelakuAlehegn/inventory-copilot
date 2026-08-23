@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   } catch {
     return (
       <>
-        <TopBar title="Dashboard" subtitle="M5 Walmart FOODS" />
+        <TopBar title="Dashboard" subtitle="Walmart food sales" />
         <div className="p-6">
           <Panel className="flex flex-col items-center gap-2 px-6 py-20 text-center">
             <p className="text-sm font-medium">Couldn&apos;t load data</p>
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <TopBar title="Dashboard" subtitle={`M5 Walmart FOODS · ${fmtNumber(fc.n_series)} series · 28-day horizon`} />
+      <TopBar title="Dashboard" subtitle={`Walmart food sales · ${fmtNumber(fc.n_series)} product lines · 28-day forecast`} />
 
       <div className="space-y-5 p-6">
         {summary.critical > 0 ? (
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
         ) : null}
 
         <KpiStrip>
-          <Kpi label="Total series" value={fmt(fc.n_series)} hint="10 stores · 3 FOODS depts" />
+          <Kpi label="Product lines" value={fmt(fc.n_series)} hint="10 stores · 3 food departments" />
           <Kpi label="Service level" value={fmtPct(dc.service_level)} hint="Target coverage probability" />
           <Kpi label="Forecast accuracy gain" value={`+${(fc.wrmsse_improvement * 100).toFixed(1)}%`} tone="primary" hint="vs seasonal-naive WRMSSE" />
           <Kpi
@@ -133,7 +133,7 @@ export default async function DashboardPage() {
             <Panel>
               <PanelHeader
                 title="Base-stock vs naive"
-                subtitle={`${fmtPct(dc.service_level)} service level · ${fmtNumber(fc.n_series)} series`}
+                subtitle={`${fmtPct(dc.service_level)} service level · ${fmtNumber(fc.n_series)} product lines`}
                 action={
                   <Button asChild variant="ghost" size="sm">
                     <Link href="/scenarios" className="gap-1">What-if <ArrowRight className="size-3.5" /></Link>

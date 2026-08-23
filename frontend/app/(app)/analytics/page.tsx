@@ -29,7 +29,7 @@ export default async function AnalyticsPage() {
   } catch {
     return (
       <>
-        <TopBar title="Analytics" subtitle="DuckDB over baked M5 Parquet" />
+        <TopBar title="Analytics" subtitle="Walmart food sales" />
         <div className="p-6">
           <Panel className="flex flex-col items-center gap-2 px-6 py-20 text-center">
             <p className="text-sm font-medium">Couldn&apos;t load data</p>
@@ -45,11 +45,11 @@ export default async function AnalyticsPage() {
 
   return (
     <>
-      <TopBar title="Analytics" subtitle={`M5 Walmart FOODS · ${kpis.start_date} → ${kpis.end_date}`} />
+      <TopBar title="Analytics" subtitle={`Walmart food sales · ${kpis.start_date} → ${kpis.end_date}`} />
 
       <div className="space-y-5 p-6">
         <KpiStrip>
-          <Kpi label="Series" value={fmt(kpis.n_series)} hint="Item × store combinations" />
+          <Kpi label="Product lines" value={fmt(kpis.n_series)} hint="One line per product in each store" />
           <Kpi label="Stores" value={fmt(kpis.n_stores)} hint="CA · TX · WI" />
           <Kpi label="Total units" value={fmt(kpis.total_units)} tone="primary" hint="Across the eval window" />
           <Kpi label="Total revenue" value={fmtCurrency(kpis.total_revenue)} tone="success" hint="Sell price × units" />
@@ -63,7 +63,7 @@ export default async function AnalyticsPage() {
 
           <Panel>
             <PanelHeader
-              title="Top series by revenue"
+              title="Top products by revenue"
               subtitle="Highest revenue across item × store"
               action={<ExportCsvButton filename="top-series" rows={topItems.map((r) => ({ item: r.item_id, category: categoryOf(r.item_id), store: r.store_id, revenue: r.revenue ?? "", units: r.units }))} />}
             />
@@ -97,13 +97,13 @@ export default async function AnalyticsPage() {
         <Panel>
           <PanelHeader
             title="Store breakdown"
-            subtitle="Units, revenue and series count per location"
+            subtitle="Units, revenue and product lines per location"
             action={<ExportCsvButton filename="store-breakdown" rows={sortedStores.map((r) => ({ store: r.store_id, series: r.n_series, units: r.total_units, revenue: r.total_revenue ?? "" }))} />}
           />
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left">
-                {["Store", "Series", "Units", "Revenue", "Revenue / series"].map((h, i) => (
+                {["Store", "Product lines", "Units", "Revenue", "Revenue per line"].map((h, i) => (
                   <th key={h} className={`label-eyebrow px-5 py-2.5 ${i > 0 ? "text-right" : ""}`}>{h}</th>
                 ))}
               </tr>
