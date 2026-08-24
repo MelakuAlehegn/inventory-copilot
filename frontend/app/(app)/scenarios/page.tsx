@@ -15,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { ParetoChartWrapper } from "@/components/charts/ParetoChartWrapper";
 import { SetCopilotContext } from "@/components/copilot/SetCopilotContext";
 import type { CopilotContextData } from "@/components/copilot/CopilotProvider";
+import { InfoTip } from "@/components/ui/info-tip";
 import { loadPolicyDefaults } from "@/lib/prefs";
+
+const POLICY_TIP =
+  "Base-stock is the forecast-driven method; naive is a simple baseline (reorder to recent average sales) we compare against.";
 
 const DEFAULTS: Required<ScenarioParams> = {
   policy: "base_stock",
@@ -294,7 +298,7 @@ export default function ScenariosPage() {
                   action={<Button variant="ghost" size="sm" onClick={() => { setParamsA(DEFAULTS); setResultA(null); setLastRunA(null); }}><RotateCcw className="size-3.5" /> Reset</Button>}
                 />
                 <div className="px-5 py-4">
-                  <span className="label-eyebrow">Policy</span>
+                  <span className="label-eyebrow inline-flex items-center gap-1">Policy <InfoTip text={POLICY_TIP} /></span>
                   <div className="mt-2"><PolicyToggle value={paramsA.policy} onChange={(p) => setA("policy", p)} side="a" /></div>
                 </div>
                 <div className="divide-y divide-border border-t border-border">
@@ -393,7 +397,7 @@ export default function ScenariosPage() {
                       <span className="font-display text-base font-bold">Scenario {side}</span>
                     </div>
                     <div className="px-5 py-4">
-                      <span className="label-eyebrow">Policy</span>
+                      <span className="label-eyebrow inline-flex items-center gap-1">Policy <InfoTip text={POLICY_TIP} /></span>
                       <div className="mt-2"><PolicyToggle value={params.policy} onChange={(p) => setP("policy", p)} side={side.toLowerCase()} /></div>
                     </div>
                     <div className="divide-y divide-border border-t border-border">

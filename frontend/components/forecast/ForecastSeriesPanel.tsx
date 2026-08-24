@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { apiClient } from "@/lib/api";
 import type { ForecastPoint } from "@/lib/types";
 import { Panel, PanelHeader } from "@/components/app/primitives";
+import { TermLabel } from "@/components/ui/info-tip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ForecastChartWrapper } from "@/components/charts/ForecastChartWrapper";
 import { SetCopilotContext } from "@/components/copilot/SetCopilotContext";
@@ -83,7 +84,7 @@ export function ForecastSeriesPanel({
       {/* Quantile fan */}
       <Panel>
         <PanelHeader
-          title="Quantile fan"
+          title={<TermLabel term="quantile_fan">Quantile fan</TermLabel>}
           subtitle={loading ? "Loading…" : `${nActual} days actuals · ${nForecast} days forecast`}
           action={
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">

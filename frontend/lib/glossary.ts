@@ -69,13 +69,13 @@ export const GLOSSARY = {
     label: "Lost-sales cost",
     tip: "The value of sales missed when an item is out of stock.",
   },
-  smart_reordering: {
-    label: "Smart reordering",
-    tip: "The forecast-driven method this app recommends for deciding when and how much to reorder.",
+  base_stock: {
+    label: "Base-stock",
+    tip: "The app's forecast-driven method: reorder up to a target level set from the demand forecast.",
   },
-  basic_method: {
-    label: "Basic method",
-    tip: "A simple comparison method that just reorders based on recent average sales.",
+  naive: {
+    label: "Naive",
+    tip: "A simple baseline to compare against: just reorder based on recent average sales.",
   },
   trade_off_curve: {
     label: "Trade-off curve",
@@ -104,6 +104,22 @@ export const GLOSSARY = {
   forecast_range: {
     label: "Forecast range",
     tip: "The forecast gives a range of likely demand, not one number, so you can plan for a normal or a busy day.",
+  },
+  quantile_fan: {
+    label: "Quantile fan",
+    tip: "The shaded bands show the range of likely demand, from the middle estimate outward to safer, higher-stock levels.",
+  },
+  seasonal_naive: {
+    label: "Seasonal-naive",
+    tip: "A simple forecast that just repeats a recent season. We compare our model against it to prove it's better.",
+  },
+  wrmsse: {
+    label: "WRMSSE",
+    tip: "The forecast's error score (the M5 competition's standard measure). Lower is better.",
+  },
+  improvement: {
+    label: "Improvement",
+    tip: "How much more accurate our forecast is than the simple seasonal one.",
   },
 } as const;
 

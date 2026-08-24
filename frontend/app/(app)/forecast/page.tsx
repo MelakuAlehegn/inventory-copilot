@@ -3,6 +3,7 @@ import { apiClient } from "@/lib/api";
 import type { ForecastPoint } from "@/lib/types";
 import { TopBar } from "@/components/app/top-bar";
 import { Kpi, KpiStrip, Panel } from "@/components/app/primitives";
+import { TermLabel } from "@/components/ui/info-tip";
 import { ForecastSeriesPanel } from "@/components/forecast/ForecastSeriesPanel";
 
 export const metadata = { title: "Forecast" };
@@ -55,10 +56,10 @@ export default async function ForecastPage() {
 
       <div className="space-y-5 p-6">
         <KpiStrip>
-          <Kpi label="Model WRMSSE" value={summary.wrmsse_model.toFixed(4)} tone="primary" hint="Weighted RMSSE, lower is better" />
-          <Kpi label="Seasonal-naive" value={summary.wrmsse_naive.toFixed(4)} hint="Baseline reference" />
-          <Kpi label="Improvement" value={`+${(summary.wrmsse_improvement * 100).toFixed(1)}%`} tone="success" hint="vs seasonal-naive" />
-          <Kpi label="Mean pinball loss" value={summary.pinball_mean.toFixed(4)} hint="Across q50-q99" />
+          <Kpi label={<TermLabel term="wrmsse">Model WRMSSE</TermLabel>} value={summary.wrmsse_model.toFixed(4)} tone="primary" hint="Lower is better" />
+          <Kpi label={<TermLabel term="seasonal_naive">Seasonal-naive</TermLabel>} value={summary.wrmsse_naive.toFixed(4)} hint="The simple forecast we beat" />
+          <Kpi label={<TermLabel term="improvement">Improvement</TermLabel>} value={`+${(summary.wrmsse_improvement * 100).toFixed(1)}%`} tone="success" hint="vs the simple forecast" />
+          <Kpi label={<TermLabel term="pinball_loss">Mean pinball loss</TermLabel>} value={summary.pinball_mean.toFixed(4)} hint="Across q50-q99" />
         </KpiStrip>
 
         <ForecastSeriesPanel

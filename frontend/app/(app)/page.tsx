@@ -6,6 +6,18 @@ import { fmtPct, fmtNumber, fmtCurrency } from "@/lib/utils";
 import { TopBar } from "@/components/app/top-bar";
 import { Delta, Kpi, KpiStrip, Panel, PanelHeader, StatusChip, fmt } from "@/components/app/primitives";
 import { Button } from "@/components/ui/button";
+import { TermLabel } from "@/components/ui/info-tip";
+import type { Term } from "@/lib/glossary";
+
+// Reorder-queue columns; `term` attaches a plain-English tooltip.
+const RQ_COLUMNS: { label: string; term?: Term; right?: boolean }[] = [
+  { label: "Item" },
+  { label: "Store" },
+  { label: "Stock", right: true },
+  { label: "Reorder level", term: "reorder_level", right: true },
+  { label: "Days of stock left", term: "days_of_stock", right: true },
+  { label: "Status", right: true },
+];
 
 export const metadata = { title: "Dashboard" };
 
@@ -42,12 +54,12 @@ export default async function DashboardPage() {
   const atRisk = summary.critical + summary.reorder;
   const pct = (model: number, naive: number) => (naive ? ((model - naive) / naive) * 100 : 0);
 
-  const policyRows = [
-    { metric: "Fill Rate", naive: fmtPct(compare.naive.fill_rate), model: fmtPct(compare.base_stock.fill_rate), delta: pct(compare.base_stock.fill_rate, compare.naive.fill_rate), better: "up" as const },
-    { metric: "Stockout Units", naive: fmtNumber(compare.naive.stockout_units), model: fmtNumber(compare.base_stock.stockout_units), delta: pct(compare.base_stock.stockout_units, compare.naive.stockout_units), better: "down" as const },
-    { metric: "Stockout-Day Rate", naive: fmtPct(compare.naive.stockout_day_rate), model: fmtPct(compare.base_stock.stockout_day_rate), delta: pct(compare.base_stock.stockout_day_rate, compare.naive.stockout_day_rate), better: "down" as const },
-    { metric: "Avg On-Hand", naive: compare.naive.avg_on_hand.toFixed(1), model: compare.base_stock.avg_on_hand.toFixed(1), delta: pct(compare.base_stock.avg_on_hand, compare.naive.avg_on_hand), better: "down" as const },
-    { metric: "Total Cost", naive: fmtCurrency(compare.naive.total_cost), model: fmtCurrency(compare.base_stock.total_cost), delta: pct(compare.base_stock.total_cost, compare.naive.total_cost), better: "down" as const },
+  const policyRows: { metric: string; term?: Term; naive: string; model: string; delta: number; better: "up" | "down" }[] = [
+    { metric: "Fill Rate", term: "fill_rate", naive: fmtPct(compare.naive.fill_rate), model: fmtPct(compare.base_stock.fill_rate), delta: pct(compare.base_stock.fill_rate, compare.naive.fill_rate), better: "up" },
+    { metric: "Stockout Units", term: "stockout_units", naive: fmtNumber(compare.naive.stockout_units), model: fmtNumber(compare.base_stock.stockout_units), delta: pct(compare.base_stock.stockout_units, compare.naive.stockout_units), better: "down" },
+    { metric: "Stockout-Day Rate", term: "stockout_day_rate", naive: fmtPct(compare.naive.stockout_day_rate), model: fmtPct(compare.base_stock.stockout_day_rate), delta: pct(compare.base_stock.stockout_day_rate, compare.naive.stockout_day_rate), better: "down" },
+    { metric: "Avg On-Hand", term: "avg_stock_held", naive: compare.naive.avg_on_hand.toFixed(1), model: compare.base_stock.avg_on_hand.toFixed(1), delta: pct(compare.base_stock.avg_on_hand, compare.naive.avg_on_hand), better: "down" },
+    { metric: "Total Cost", naive: fmtCurrency(compare.naive.total_cost), model: fmtCurrency(compare.base_stock.total_cost), delta: pct(compare.base_stock.total_cost, compare.naive.total_cost), better: "down" },
   ];
 
   const headline = [
@@ -77,13 +89,13 @@ export default async function DashboardPage() {
 
         <KpiStrip>
           <Kpi label="Product lines" value={fmt(fc.n_series)} hint="10 stores · 3 food departments" />
-          <Kpi label="Service level" value={fmtPct(dc.service_level)} hint="Target coverage probability" />
-          <Kpi label="Forecast accuracy gain" value={`+${(fc.wrmsse_improvement * 100).toFixed(1)}%`} tone="primary" hint="vs seasonal-naive WRMSSE" />
+          <Kpi label={<TermLabel term="service_level">Service level</TermLabel>} value={fmtPct(dc.service_level)} hint="How often we aim to have enough stock" />
+          <Kpi label="Forecast accuracy gain" value={`+${(fc.wrmsse_improvement * 100).toFixed(1)}%`} tone="primary" hint="vs the simple forecast" />
           <Kpi
-            label="Mean fill rate"
+            label={<TermLabel term="fill_rate">Mean fill rate</TermLabel>}
             value={fmtPct(dc.fill_rate_model)}
             tone="success"
-            hint={<><Delta value={pct(dc.fill_rate_model, dc.fill_rate_naive)} /> vs naive baseline</>}
+            hint={<><Delta value={pct(dc.fill_rate_model, dc.fill_rate_naive)} /> vs baseline</>}
           />
         </KpiStrip>
 
@@ -104,8 +116,10 @@ export default async function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    {["Item", "Store", "Stock", "Reorder pt.", "Days left", "Status"].map((h, i) => (
-                      <th key={h} className={`label-eyebrow px-5 py-2.5 ${i > 1 ? "text-right" : ""}`}>{h}</th>
+                    {RQ_COLUMNS.map((h) => (
+                      <th key={h.label} className={`label-eyebrow px-5 py-2.5 ${h.right ? "text-right" : ""}`}>
+                        {h.term ? <TermLabel term={h.term}>{h.label}</TermLabel> : h.label}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -132,7 +146,7 @@ export default async function DashboardPage() {
           <div className="space-y-5">
             <Panel>
               <PanelHeader
-                title="Base-stock vs naive"
+                title={<span className="inline-flex items-center gap-1"><TermLabel term="base_stock">Base-stock</TermLabel> vs <TermLabel term="naive">naive</TermLabel></span>}
                 subtitle={`${fmtPct(dc.service_level)} service level · ${fmtNumber(fc.n_series)} product lines`}
                 action={
                   <Button asChild variant="ghost" size="sm">
@@ -143,7 +157,9 @@ export default async function DashboardPage() {
               <ul className="divide-y divide-border">
                 {policyRows.map((row) => (
                   <li key={row.metric} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
-                    <span className="text-muted-foreground">{row.metric}</span>
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      {row.term ? <TermLabel term={row.term}>{row.metric}</TermLabel> : row.metric}
+                    </span>
                     <span className="flex items-center gap-3">
                       <span className="num text-xs text-muted-foreground">{row.naive}</span>
                       <span className="num font-semibold">{row.model}</span>

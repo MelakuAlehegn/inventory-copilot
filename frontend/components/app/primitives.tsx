@@ -42,7 +42,7 @@ export function Kpi({
   hint,
   tone = "default",
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   hint?: ReactNode;
   tone?: "default" | "primary" | "success" | "danger" | "warning";
