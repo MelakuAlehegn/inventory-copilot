@@ -95,7 +95,7 @@ export function NavRail({ alertCount = 0 }: { alertCount?: number }) {
     <aside className={cn("flex shrink-0 flex-col border-r border-border bg-surface transition-[width]", collapsed ? "w-16" : "w-56")}>
       {/* Logo */}
       <div className={cn("flex items-center border-b border-border py-4", collapsed ? "justify-center px-2" : "gap-3 px-4")}>
-        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary grad-brand text-primary-foreground shadow-sm">
           <Warehouse className="size-[18px]" />
         </div>
         {!collapsed ? (
