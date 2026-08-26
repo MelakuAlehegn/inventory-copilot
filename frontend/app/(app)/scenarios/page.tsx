@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { Play, Save, RotateCcw, GitCompare, X, Check, ChevronDown } from "lucide-react";
+import { Play, Save, RotateCcw, GitCompare, X, Check, ChevronDown, Bookmark } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import { fmtPct, fmtCurrency, cn } from "@/lib/utils";
 import type { ScenarioParams, PolicyMetrics, SavedScenario, ParetoPoint } from "@/lib/types";
@@ -227,29 +227,38 @@ export default function ScenariosPage() {
     : { page: "scenarios", scenario_status: "no scenario has been run yet" };
 
   const SavedPanel = (
-    <Panel>
-      <PanelHeader title="Saved scenarios" subtitle="Your saved runs" />
+    <section>
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-[15px] font-semibold leading-tight">Saved scenarios</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Your saved runs</p>
+        </div>
+        {saved.length > 0 ? <span className="num text-xs text-muted-foreground">{saved.length} saved</span> : null}
+      </div>
       {saved.length === 0 ? (
-        <p className="px-5 py-10 text-center text-sm text-muted-foreground">No saved scenarios yet. Run a simulation and hit Save.</p>
+        <Panel className="px-5 py-10 text-center text-sm text-muted-foreground">No saved scenarios yet. Run a simulation and hit Save.</Panel>
       ) : (
-        <ul className="divide-y divide-border">
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]">
           {saved.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-2 px-5 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium">{s.name}</p>
-                <p className="num mt-1 text-[11px] text-muted-foreground">
-                  {policyLabel(s.params.policy ?? "base_stock")} · SL {fmtPct(s.params.service_level ?? 0.95)} · LT {s.params.lead_time ?? 7}d · ×{(s.params.demand_multiplier ?? 1).toFixed(2)}
-                </p>
+            <div key={s.id} className="panel group relative p-4">
+              <div className="flex items-start justify-between gap-2">
+                <span className="grid size-8 place-items-center rounded-lg bg-copper-50 text-primary"><Bookmark className="size-4" /></span>
+                <button onClick={() => setPendingDelete(s)} aria-label="Delete" className="rounded p-1 text-muted-foreground opacity-0 transition hover:text-danger group-hover:opacity-100">
+                  <X className="size-4" />
+                </button>
               </div>
-              <Button variant="outline" size="sm" onClick={() => loadAndRun(s)} className="shrink-0" id={`run-saved-${s.id}`}>
+              <p className="mt-3 truncate text-sm font-semibold">{s.name}</p>
+              <p className="num mt-1 text-[11px] text-muted-foreground">
+                {policyLabel(s.params.policy ?? "base_stock")} · SL {fmtPct(s.params.service_level ?? 0.95)} · LT {s.params.lead_time ?? 7}d · ×{(s.params.demand_multiplier ?? 1).toFixed(2)}
+              </p>
+              <Button variant="outline" size="sm" onClick={() => loadAndRun(s)} className="mt-3 w-full" id={`run-saved-${s.id}`}>
                 <Play className="size-3.5" /> Run
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setPendingDelete(s)} aria-label="Delete" className="shrink-0"><X className="size-4" /></Button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
-    </Panel>
+    </section>
   );
 
   const ParetoPanel = (
@@ -333,12 +342,12 @@ export default function ScenariosPage() {
             {/* Right column: results (KPIs) + pareto + vs-naive table */}
             <div className="space-y-5">
               {resultA ? (
-                <Panel className="grid grid-cols-2 divide-x divide-border">
+                <div className="grid grid-cols-2 gap-4">
                   <Kpi label="Fill rate" value={fmtPct(resultA.fill_rate)} tone="success"
                     hint={baseline ? <><Delta value={pct(resultA.fill_rate, baseline.fill_rate)} /> vs naive</> : undefined} />
                   <Kpi label="Total cost" value={fmtCurrency(resultA.total_cost)} tone="primary"
                     hint={baseline ? <><Delta value={pct(resultA.total_cost, baseline.total_cost)} invert /> vs naive</> : undefined} />
-                </Panel>
+                </div>
               ) : null}
 
               {!resultA ? (

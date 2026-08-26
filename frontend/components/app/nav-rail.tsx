@@ -10,10 +10,9 @@ import {
   TrendingUp,
   Boxes,
   FlaskConical,
-  MessageSquare,
+  Bot,
   Settings,
   LogOut,
-  Warehouse,
   PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,17 +43,14 @@ export function NavRail({ alertCount = 0 }: { alertCount?: number }) {
       return next;
     });
 
-  const groups: { label: string; items: NavItem[] }[] = [
-    { label: "Overview", items: [
-      { to: "/", label: "Dashboard", icon: LayoutGrid },
-      { to: "/analytics", label: "Analytics", icon: BarChart3 },
-    ] },
-    { label: "Intelligence", items: [
-      { to: "/forecast", label: "Forecast", icon: TrendingUp },
-      { to: "/inventory", label: "Inventory", icon: Boxes, badge: alertCount || undefined },
-      { to: "/scenarios", label: "Scenarios", icon: FlaskConical },
-    ] },
-    { label: "Copilot", items: [{ to: "/copilot", label: "Ask Copilot", icon: MessageSquare }] },
+  const navItems: NavItem[] = [
+    { to: "/", label: "Dashboard", icon: LayoutGrid },
+    { to: "/analytics", label: "Analytics", icon: BarChart3 },
+    { to: "/forecast", label: "Forecast", icon: TrendingUp },
+    { to: "/inventory", label: "Inventory", icon: Boxes, badge: alertCount || undefined },
+    { to: "/scenarios", label: "Scenarios", icon: FlaskConical },
+    { to: "/copilot", label: "Copilot", icon: Bot },
+    { to: "/settings", label: "Settings", icon: Settings },
   ];
 
   const shownName = displayName || session?.user?.name || "User";
@@ -95,58 +91,42 @@ export function NavRail({ alertCount = 0 }: { alertCount?: number }) {
     <aside className={cn("flex shrink-0 flex-col border-r border-border bg-surface transition-[width]", collapsed ? "w-16" : "w-56")}>
       {/* Logo */}
       <div className={cn("flex items-center border-b border-border py-4", collapsed ? "justify-center px-2" : "gap-3 px-4")}>
-        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary grad-brand text-primary-foreground shadow-sm">
-          <Warehouse className="size-[18px]" />
+        <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary grad-brand text-sm font-bold text-primary-foreground shadow-sm">
+          Pa
         </div>
         {!collapsed ? (
           <div className="min-w-0 flex-1">
-            <p className="font-display text-sm font-bold leading-tight">Inventory Copilot</p>
-            <p className="num mt-0.5 text-[10px] tracking-wide text-muted-foreground">WALMART FOODS · 14K PRODUCT LINES</p>
+            <p className="font-display text-sm font-bold leading-tight">Pallet</p>
           </div>
         ) : null}
       </div>
 
-      <nav className={cn("flex-1 overflow-y-auto py-5", collapsed ? "px-2" : "px-3")}>
-        {/* Collapsed: a centered toggle at the top (no section labels to sit beside). */}
-        {collapsed ? <div className="mb-4 flex justify-center">{collapseBtn}</div> : null}
-        {groups.map((group, gi) => (
-          <div key={group.label} className="mb-6">
-            {!collapsed ? (
-              <div className="flex items-center justify-between px-2 pb-2">
-                <p className="label-eyebrow">{group.label}</p>
-                {gi === 0 ? collapseBtn : null}
-              </div>
-            ) : null}
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const active = item.to === "/" ? pathname === "/" : pathname === item.to || pathname.startsWith(item.to + "/");
-                const Icon = item.icon;
-                return (
-                  <li key={item.to}>
-                    <Link href={item.to} className={cn(itemClass(active), collapsed && "relative")} aria-current={active ? "page" : undefined} title={collapsed ? item.label : undefined}>
-                      <Icon className="size-4" />
-                      {!collapsed ? <span className="flex-1 truncate">{item.label}</span> : null}
-                      {item.badge ? (
-                        collapsed ? (
-                          <span className="absolute right-1.5 top-1 size-1.5 rounded-full bg-danger" />
-                        ) : (
-                          <span className="num rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white">{item.badge}</span>
-                        )
-                      ) : null}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+      <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")}>
+        <div className={cn("mb-2 flex", collapsed ? "justify-center" : "justify-end px-1")}>{collapseBtn}</div>
+        <ul className="space-y-0.5">
+          {navItems.map((item) => {
+            const active = item.to === "/" ? pathname === "/" : pathname === item.to || pathname.startsWith(item.to + "/");
+            const Icon = item.icon;
+            return (
+              <li key={item.to}>
+                <Link href={item.to} className={cn(itemClass(active), collapsed && "relative")} aria-current={active ? "page" : undefined} title={collapsed ? item.label : undefined}>
+                  <Icon className="size-4" />
+                  {!collapsed ? <span className="flex-1 truncate">{item.label}</span> : null}
+                  {item.badge ? (
+                    collapsed ? (
+                      <span className="absolute right-1.5 top-1 size-1.5 rounded-full bg-danger" />
+                    ) : (
+                      <span className="num rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white">{item.badge}</span>
+                    )
+                  ) : null}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
       <div className={cn("border-t border-border", collapsed ? "p-2" : "p-3")}>
-        <Link href="/settings" className={cn(itemClass(pathname === "/settings"), "mb-2")} title={collapsed ? "Settings" : undefined}>
-          <Settings className="size-4" />
-          {!collapsed ? "Settings" : null}
-        </Link>
         <div className={cn("flex items-center rounded-md transition-colors", collapsed ? "flex-col gap-1" : "gap-1 pr-1 hover:bg-secondary")}>
           <Link
             href="/settings"

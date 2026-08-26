@@ -34,6 +34,23 @@ const COLUMNS: { label: string; term?: Term; right?: boolean }[] = [
   { label: "Status", right: true },
 ];
 
+// A stable pastel chip color + 2-letter initials for an item id (decorative row avatar).
+const CHIP_COLORS = [
+  "bg-info-soft text-info-foreground",
+  "bg-success-soft text-success-foreground",
+  "bg-warning-soft text-warning-foreground",
+  "bg-danger-soft text-danger-foreground",
+  "bg-copper-50 text-primary",
+];
+function chipColor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return CHIP_COLORS[h % CHIP_COLORS.length];
+}
+function chipInitials(id: string): string {
+  return id.replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+}
+
 const TABS: { key: InventoryStatus | ""; label: string }[] = [
   { key: "", label: "All" },
   { key: "critical", label: "Critical" },
@@ -217,7 +234,12 @@ export default function InventoryClient() {
                       ))
                     : items.map((r) => (
                         <tr key={r.unique_id} onClick={() => setSelected(r)} className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-2" id={`inv-row-${r.unique_id}`}>
-                          <td className="num px-4 py-2.5 text-[13px]">{r.item_id}</td>
+                          <td className="px-4 py-2.5 text-[13px]">
+                            <span className="inline-flex items-center gap-2">
+                              <span className={cn("grid size-6 shrink-0 place-items-center rounded-md text-[9px] font-semibold", chipColor(r.item_id))}>{chipInitials(r.item_id)}</span>
+                              <span className="num">{r.item_id}</span>
+                            </span>
+                          </td>
                           <td className="num px-4 py-2.5 text-[13px] text-muted-foreground">{r.store_id}</td>
                           <td className="num px-4 py-2.5 text-right text-[13px] font-medium">{fmtNumber(r.current_stock)}</td>
                           <td className="num px-4 py-2.5 text-right text-[13px] text-muted-foreground">{fmtNumber(r.reorder_point)}</td>

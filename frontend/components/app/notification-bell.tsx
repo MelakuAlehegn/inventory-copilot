@@ -45,10 +45,11 @@ export function NotificationBell() {
 
   return (
     <>
-      <Button ref={btnRef} variant="ghost" size="icon" aria-label="Notifications" onClick={toggle} className="relative" id="topbar-notifications">
+      <Button ref={btnRef} variant="outline" size="sm" aria-label="Notifications" onClick={toggle} className="gap-1.5 rounded-full" id="topbar-notifications">
         <Bell className="size-4" />
+        Notifications
         {count > 0 ? (
-          <span className="num absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-semibold leading-none text-white">
+          <span className="num grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-semibold leading-none text-white">
             {count > 99 ? "99+" : count}
           </span>
         ) : null}

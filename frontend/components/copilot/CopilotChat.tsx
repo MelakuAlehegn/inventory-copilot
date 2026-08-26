@@ -4,10 +4,9 @@ import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { useSession } from "next-auth/react";
 import { apiClient } from "@/lib/api";
 import type { ChatSession, ChatMessage, ToolCallTrace } from "@/lib/types";
-import { Send, Terminal, Check, Loader2, MessageSquare, ChevronDown, Plus, History, Trash2 } from "lucide-react";
+import { Terminal, Loader2, MessageSquare, ChevronDown, Plus, History, Trash2, Check, Square, Paperclip, ArrowUp, Brain, Wrench, ShieldCheck, Sparkles, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Modal } from "@/components/app/modal";
 
 // Shown on the full /copilot workspace and as a fallback for any unrecognized page.
@@ -65,14 +64,28 @@ interface AgentStep {
   args?: Record<string, unknown>;
   summary?: string;
   done: boolean;
+  startedAt?: number;
+  durationMs?: number;
 }
 
-function argsPreview(args?: Record<string, unknown>): string {
+function argsJson(args?: Record<string, unknown>): string {
   if (!args) return "";
-  const s = Object.entries(args)
-    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
-    .join(", ");
-  return s.length > 90 ? s.slice(0, 90) + "…" : s;
+  const s = JSON.stringify(args);
+  return s.length > 140 ? s.slice(0, 140) + "…" : s;
+}
+
+// Static description + icon for each backend phase label (the stream only sends the label).
+const PHASE_META: Record<string, { icon: React.ElementType; description: string }> = {
+  Thinking: { icon: Brain, description: "Parsing the request and identifying the data needed." },
+  "Running tools": { icon: Wrench, description: "Running tools to gather the figures." },
+  "Verifying the figures": { icon: ShieldCheck, description: "Checking every number against a tool result." },
+  "Double-checking the numbers": { icon: ShieldCheck, description: "Re-checking figures that need another look." },
+  Finalizing: { icon: Sparkles, description: "Composing the grounded answer." },
+};
+
+// Phases to show for a finished message (the sequence isn't persisted, so reconstruct it).
+function canonicalPhases(hasTools: boolean): string[] {
+  return ["Thinking", ...(hasTools ? ["Running tools"] : []), "Verifying the figures", "Finalizing"];
 }
 
 /** Render an assistant answer, turning **bold** markers into emphasised (mono) spans. */
@@ -90,29 +103,78 @@ function renderAnswer(text: string): ReactNode {
   ));
 }
 
-function Trajectory({ steps, status }: { steps: AgentStep[]; status?: string }) {
-  if (!steps.length && !status) return null;
+/** One tool call, nested inside the "Running tools" phase card. */
+function ToolCard({ step }: { step: AgentStep }) {
   return (
-    <div className="rounded-lg border border-border bg-surface-2/60 p-3">
-      <p className="label-eyebrow mb-3">Agent trajectory</p>
-      <ol className="space-y-1.5">
-        {steps.map((step, i) => (
-          <li key={i} className="rounded-md border border-border bg-surface px-2.5 py-2">
-            <div className="flex items-center gap-2">
-              <Terminal className="size-3 text-primary" />
-              <span className="num text-[11px] font-semibold">{step.name}</span>
-              {step.done ? <Check className="ml-auto size-3 text-success" /> : <Loader2 className="ml-auto size-3 animate-spin text-primary" />}
-            </div>
-            {step.args ? <p className="num mt-1 text-[10px] leading-relaxed text-muted-foreground">{argsPreview(step.args)}</p> : null}
-            {step.summary ? <p className="num mt-1 text-[10px] leading-relaxed text-success-foreground">→ {step.summary}</p> : null}
-          </li>
-        ))}
-      </ol>
-      {status ? (
-        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin text-primary" /> {status}…
-        </div>
+    <div className="rounded-lg bg-surface-2 p-3">
+      <div className="flex items-center gap-2">
+        <span className="num text-[13px] font-semibold">{step.name}</span>
+        <span className={cn("text-[11px] font-semibold", step.done ? "text-success" : "text-primary")}>
+          {step.done ? "Completed" : "Running"}
+        </span>
+        <span className="num ml-auto text-[11px] text-muted-foreground">
+          {step.durationMs != null ? `${(step.durationMs / 1000).toFixed(1)}s` : !step.done ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        </span>
+      </div>
+      {step.args ? (
+        <div className="num mt-2 rounded-md bg-surface px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">{argsJson(step.args)}</div>
       ) : null}
+      {step.summary ? (
+        <p className="num mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <FileText className="mt-0.5 size-3.5 shrink-0 text-success" /> {step.summary}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** The staged run as big phase cards (icon + description + status), with the tool calls nested
+ * inside the "Running tools" phase, matching the design. */
+function Trajectory({ phases, steps, active }: { phases: string[]; steps: AgentStep[]; active: boolean }) {
+  if (!phases.length) return null;
+  const doneCount = steps.filter((s) => s.done).length;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <span className="label-eyebrow">Agent trajectory</span>
+        <span className="flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          <span className={cn("size-1.5 rounded-full", active ? "bg-primary" : "bg-success")} />
+          {active ? "In progress" : "Completed"}
+        </span>
+      </div>
+      {phases.map((label, i) => {
+        const meta = PHASE_META[label] ?? { icon: Wrench, description: "" };
+        const Icon = meta.icon;
+        const current = active && i === phases.length - 1;
+        const isTools = label === "Running tools";
+        return (
+          <div key={i} className="panel p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted-foreground">
+                <Icon className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">{label}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {isTools && steps.length ? `Executing ${steps.length} tool${steps.length > 1 ? "s" : ""}` : meta.description}
+                </p>
+                {isTools && steps.length ? (
+                  <div className="mt-3 space-y-2">{steps.map((s, si) => <ToolCard key={si} step={s} />)}</div>
+                ) : null}
+              </div>
+              <span className="shrink-0 text-xs font-semibold">
+                {current ? (
+                  <Loader2 className="size-4 animate-spin text-primary" />
+                ) : isTools ? (
+                  <span className="flex items-center gap-1 text-success"><Check className="size-3.5" /> {doneCount}/{steps.length} done</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-success"><Check className="size-3.5" /> Done</span>
+                )}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -121,33 +183,36 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   if (msg.role === "user") {
     return (
       <div className="flex justify-end">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-lg rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground">{msg.content}</p>
+        <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm text-primary-foreground">{msg.content}</p>
       </div>
     );
   }
   const steps: AgentStep[] = Array.isArray(msg.tool_calls)
     ? msg.tool_calls.map((tc) => ({ name: tc.tool_name, summary: tc.result_summary, done: true }))
     : [];
+  const phases = canonicalPhases(steps.length > 0);
   return (
     <div className="space-y-3">
-      {steps.length > 0 ? <Trajectory steps={steps} /> : null}
+      <Trajectory phases={phases} steps={steps} active={false} />
       <div className="text-sm leading-relaxed text-foreground">{renderAnswer(msg.content)}</div>
     </div>
   );
 }
 
-function StreamingMsg({ content, steps, status }: { content: string; steps: AgentStep[]; status: string }) {
+function StreamingMsg({ content, steps, phases }: { content: string; steps: AgentStep[]; phases: string[] }) {
+  const showThinking = !phases.length && !steps.length && !content;
   return (
     <div className="space-y-3">
-      <Trajectory steps={steps} status={content ? undefined : status} />
+      {phases.length ? <Trajectory phases={phases} steps={steps} active={!content} /> : null}
+      {showThinking ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin text-primary" /> Thinking…
+        </div>
+      ) : null}
       {content ? (
         <div className="text-sm leading-relaxed text-foreground">
           {renderAnswer(content)}
           <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-primary align-text-bottom" />
-        </div>
-      ) : !steps.length && !status ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin text-primary" /> Thinking…
         </div>
       ) : null}
     </div>
@@ -195,15 +260,24 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
   const [steps, setSteps] = useState<AgentStep[]>([]);
-  const [status, setStatus] = useState("");
+  const [, setStatus] = useState("");
+  const [phases, setPhases] = useState<string[]>([]);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false); // panel: show the history list
   const [pendingDelete, setPendingDelete] = useState<{ kind: "one"; id: string; title: string } | { kind: "all" } | null>(null);
 
   const msgsRef = useRef<HTMLDivElement>(null);
-  const taRef   = useRef<HTMLTextAreaElement>(null);
+  const taRef   = useRef<HTMLInputElement>(null);
   const sentInitial = useRef(false);
   const lastPrefillNonce = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const stoppedRef = useRef(false);
+
+  // Cancel an in-flight run (before the answer arrives).
+  const stop = () => {
+    stoppedRef.current = true;
+    abortRef.current?.abort();
+  };
 
   // The docked panel shows history for the current page only; the full workspace shows all.
   const pageFilter = isPanel ? (context?.page ? String(context.page) : undefined) : undefined;
@@ -247,7 +321,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
 
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, streamContent, steps, status]);
+  }, [messages, streamContent, steps, phases]);
 
   // In the docked panel, changing pages starts a fresh chat (the old one stays in that
   // page's history). Skip the first mount so a prefilled question isn't wiped.
@@ -276,23 +350,34 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setStreamContent("");
     setSteps([]);
     setStatus("");
+    setPhases([]);
+
+    stoppedRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     let fullContent = "";
     let sessionId = activeId; // capture the session the backend used/created
     const trajectory: AgentStep[] = [];
 
     try {
-      for await (const event of apiClient(token).streamChatFetch(activeId, msg, context)) {
+      for await (const event of apiClient(token).streamChatFetch(activeId, msg, context, controller.signal)) {
         if (event.type === "status") {
-          setStatus((JSON.parse(event.data) as { label?: string }).label ?? "");
+          const label = (JSON.parse(event.data) as { label?: string }).label ?? "";
+          setStatus(label);
+          if (label) setPhases((p) => (p[p.length - 1] === label ? p : [...p, label]));
         } else if (event.type === "tool") {
           const raw = JSON.parse(event.data) as { name?: string; args?: Record<string, unknown> };
-          trajectory.push({ name: raw.name ?? "tool", args: raw.args, done: false });
+          trajectory.push({ name: raw.name ?? "tool", args: raw.args, done: false, startedAt: Date.now() });
           setSteps([...trajectory]);
         } else if (event.type === "tool_result") {
           const raw = JSON.parse(event.data) as { name?: string; summary?: string };
           const pending = trajectory.find((s) => !s.done && s.name === raw.name);
-          if (pending) { pending.done = true; pending.summary = raw.summary; }
+          if (pending) {
+            pending.done = true;
+            pending.summary = raw.summary;
+            if (pending.startedAt) pending.durationMs = Date.now() - pending.startedAt;
+          }
           setSteps([...trajectory]);
         } else if (event.type === "message") {
           try {
@@ -304,7 +389,20 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
         }
       }
     } catch {
-      fullContent = "Sorry, I couldn't reach the backend. Please check your connection.";
+      // A user-initiated stop aborts the fetch; that isn't a connection error.
+      if (!stoppedRef.current) fullContent = "Sorry, I couldn't reach the backend. Please check your connection.";
+    } finally {
+      abortRef.current = null;
+    }
+
+    // Stopped before any answer: drop the live trajectory, keep the question.
+    if (stoppedRef.current && !fullContent) {
+      setStreaming(false);
+      setStreamContent("");
+      setSteps([]);
+      setStatus("");
+      setPhases([]);
+      return;
     }
 
     // Reveal the verified answer progressively (grounding runs server-side before we get here).
@@ -323,6 +421,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     setStreamContent("");
     setSteps([]);
     setStatus("");
+    setPhases([]);
 
     // Keep sending to the same session (so a conversation is one history entry, not one per
     // message), and refresh the history list so the new/updated chat shows up.
@@ -394,44 +493,36 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
     <div className={cn("space-y-6", isPanel ? "p-4" : "p-5")}>
       {messages.length === 0 && !streaming ? welcome : null}
       {messages.map((msg) => <MessageBubble key={msg.id} msg={msg} />)}
-      {streaming ? <StreamingMsg content={streamContent} steps={steps} status={status} /> : null}
+      {streaming ? <StreamingMsg content={streamContent} steps={steps} phases={phases} /> : null}
     </div>
   );
 
   const composer = (
-    <div className={cn("shrink-0 border-t border-border bg-surface", isPanel ? "p-2.5" : "p-3")}>
+    <div className={cn("shrink-0 border-t border-border bg-surface", isPanel ? "p-2.5" : "p-4")}>
       <div className={isPanel ? "" : "mx-auto max-w-3xl"}>
-        <div className="relative">
-          <Textarea
+        <div className="flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-4 pr-1.5 transition-colors focus-within:border-primary/50">
+          <Paperclip className="size-4 shrink-0 text-muted-foreground" />
+          <input
             ref={taRef}
-            rows={isPanel ? 2 : 3}
-            placeholder="Ask about inventory, forecasts, what-if scenarios…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
             }}
-            disabled={streaming}
-            className="resize-none bg-surface-2 pr-12 text-sm"
+            placeholder="Ask about demand, inventory, or scenarios..."
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             id="copilot-input"
           />
-          <Button
-            size="icon"
-            className="absolute bottom-2 right-2 size-8"
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || streaming}
-            aria-label="Send"
-            id="copilot-send"
-          >
-            {streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </Button>
+          {streaming ? (
+            <button onClick={stop} aria-label="Stop" id="copilot-stop" className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
+              <Square className="size-3.5 fill-current" />
+            </button>
+          ) : (
+            <button onClick={() => sendMessage(input)} disabled={!input.trim()} aria-label="Send" id="copilot-send" className="grid size-8 shrink-0 place-items-center rounded-full grad-primary text-primary-foreground transition-opacity disabled:opacity-40">
+              <ArrowUp className="size-4" />
+            </button>
+          )}
         </div>
-        {!isPanel ? (
-          <p className="mt-2 text-center text-[11px] text-muted-foreground">
-            Press <span className="num rounded border border-border px-1">Enter</span> to send ·{" "}
-            <span className="num rounded border border-border px-1">Shift+Enter</span> for newline
-          </p>
-        ) : null}
       </div>
     </div>
   );

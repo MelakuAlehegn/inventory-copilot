@@ -41,11 +41,13 @@ export function Kpi({
   value,
   hint,
   tone = "default",
+  icon: Icon,
 }: {
   label: ReactNode;
   value: string;
   hint?: ReactNode;
   tone?: "default" | "primary" | "success" | "danger" | "warning";
+  icon?: React.ElementType;
 }) {
   const toneClass = {
     default: "text-foreground",
@@ -55,8 +57,15 @@ export function Kpi({
     warning: "text-warning",
   }[tone];
   return (
-    <div className="flex flex-col gap-2 px-5 py-5">
-      <span className="label-eyebrow">{label}</span>
+    <div className="panel flex flex-col gap-2.5 px-5 py-5">
+      <div className="flex items-start justify-between gap-2">
+        <span className="label-eyebrow">{label}</span>
+        {Icon ? (
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-2 text-muted-foreground">
+            <Icon className="size-4" />
+          </span>
+        ) : null}
+      </div>
       <span className={cn("num text-[30px] font-semibold leading-none", toneClass)}>{value}</span>
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </div>
@@ -65,9 +74,9 @@ export function Kpi({
 
 export function KpiStrip({ children }: { children: ReactNode }) {
   return (
-    <Panel className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 [&>*:not(:first-child)]:sm:border-l [&>*:not(:first-child)]:sm:border-border">
+    <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(210px,1fr))]">
       {children}
-    </Panel>
+    </div>
   );
 }
 

@@ -39,23 +39,24 @@ export function TopBar({
   const showAsk = pathname !== "/copilot" && !pathname.startsWith("/settings");
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border bg-surface/85 px-6 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border/50 bg-background px-6 py-3">
       <div className="min-w-0">
         <h1 className="truncate text-xl font-bold leading-tight">{title}</h1>
         {subtitle ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p> : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {actions}
+        <NotificationBell />
+        <Button variant="outline" size="sm" onClick={flipTheme} aria-label="Toggle theme" className="gap-1.5 rounded-full">
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          Theme
+        </Button>
         {showAsk ? (
-          <Button variant={open ? "default" : "outline"} size="sm" onClick={toggle} className="gap-1.5">
+          <Button size="sm" onClick={toggle} aria-pressed={open} className="gap-1.5 rounded-full grad-primary text-primary-foreground shadow-sm">
             <Sparkles className="size-4" />
-            Ask
+            Ask Copilot
           </Button>
         ) : null}
-        <Button variant="ghost" size="icon" onClick={flipTheme} aria-label="Toggle theme">
-          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </Button>
-        <NotificationBell />
       </div>
     </header>
   );

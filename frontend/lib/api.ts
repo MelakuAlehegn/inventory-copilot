@@ -206,7 +206,8 @@ export function apiClient(token?: string | null) {
     async *streamChatFetch(
       sessionId: string | null,
       userMessage: string,
-      context?: Record<string, string | number> | null
+      context?: Record<string, string | number> | null,
+      signal?: AbortSignal
     ): AsyncGenerator<{ type: string; data: string }> {
       const res = await fetch(`${BASE}/chat/stream`, {
         method: "POST",
@@ -220,6 +221,7 @@ export function apiClient(token?: string | null) {
           message: userMessage,
           ...(context ? { context } : {}),
         }),
+        signal,
       });
 
       if (!res.ok || !res.body) {

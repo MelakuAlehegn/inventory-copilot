@@ -14,7 +14,7 @@ export function StoreBarChart({ data }: { data: StoreMetrics[] }) {
         <BarChart data={data} margin={{ top: 8, right: 16, bottom: 4, left: 0 }}>
           <defs>
             <linearGradient id="storeBar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#F2B635" />
+              <stop offset="0%" stopColor="#7FA0F5" />
               <stop offset="100%" stopColor={t.basestock} />
             </linearGradient>
           </defs>

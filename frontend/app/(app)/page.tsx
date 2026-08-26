@@ -74,16 +74,14 @@ export default async function DashboardPage() {
 
       <div className="space-y-5 p-6">
         {summary.critical > 0 ? (
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/25 bg-danger-soft px-4 py-3">
-            <div className="flex items-center gap-3 text-sm">
-              <AlertTriangle className="size-4 text-danger" />
-              <p>
-                <span className="num font-semibold">{fmt(summary.critical)}</span> items critical. Stockout imminent, review the reorder queue.
-              </p>
-            </div>
-            <Button asChild size="sm" variant="destructive">
-              <Link href="/inventory?status=critical">View critical</Link>
-            </Button>
+          <div className="flex w-fit items-center gap-3 rounded-lg border border-danger/20 bg-danger-soft/60 px-3.5 py-2 text-[13px]">
+            <span className="flex items-center gap-2 text-danger-foreground">
+              <AlertTriangle className="size-3.5 shrink-0 text-danger" />
+              <span><span className="num font-semibold">{fmt(summary.critical)}</span> items about to run out</span>
+            </span>
+            <Link href="/inventory?status=critical" className="flex shrink-0 items-center gap-1 text-xs font-medium text-danger transition-opacity hover:opacity-70">
+              View <ArrowRight className="size-3.5" />
+            </Link>
           </div>
         ) : null}
 

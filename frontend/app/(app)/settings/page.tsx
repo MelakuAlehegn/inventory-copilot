@@ -8,9 +8,10 @@ import { Panel, PanelHeader } from "@/components/app/primitives";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { loadPolicyDefaults, savePolicyDefaults, DEFAULT_POLICY, loadDisplayName, saveDisplayName, type PolicyDefaults } from "@/lib/prefs";
 
-type Theme = "light" | "dark";
+type ThemeMode = "light" | "dark" | "system";
 type Health = "checking" | "online" | "offline";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -29,7 +30,7 @@ function Row({ label, hint, control }: { label: string; hint: string; control: R
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const [theme, setTheme] = useState<Theme>("light");
+  const [mode, setMode] = useState<ThemeMode>("system");
   const [criticalAlerts, setCriticalAlerts] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(true);
   const [overstock, setOverstock] = useState(false);
@@ -45,7 +46,9 @@ export default function SettingsPage() {
   const [health, setHealth] = useState<Health>("checking");
 
   useEffect(() => {
-    setTheme((document.documentElement.getAttribute("data-theme") as Theme) || "light");
+    let stored: string | null = null;
+    try { stored = localStorage.getItem("theme"); } catch { /* storage may be unavailable */ }
+    setMode(stored === "light" || stored === "dark" ? stored : "system");
     setPolicy(loadPolicyDefaults());
     setDisplayName(loadDisplayName());
   }, []);
@@ -64,13 +67,15 @@ export default function SettingsPage() {
     return () => { alive = false; };
   }, []);
 
-  const setThemeTo = (dark: boolean) => {
-    const next: Theme = dark ? "dark" : "light";
+  const applyMode = (m: ThemeMode) => {
+    try { localStorage.setItem("theme", m); } catch { /* storage may be unavailable */ }
+    const resolved = m === "system"
+      ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : m;
     const el = document.documentElement;
-    el.setAttribute("data-theme", next);
-    el.classList.toggle("dark", dark);
-    try { localStorage.setItem("theme", next); } catch { /* storage may be unavailable */ }
-    setTheme(next);
+    el.setAttribute("data-theme", resolved);
+    el.classList.toggle("dark", resolved === "dark");
+    setMode(m);
   };
 
   const savePolicy = () => {
@@ -118,13 +123,24 @@ export default function SettingsPage() {
         </Panel>
 
         <Panel>
-          <PanelHeader title="Appearance" subtitle="Light and dark are both first-class" />
-          <div className="divide-y divide-border">
-            <Row
-              label="Dark theme"
-              hint="Warm neutral dark surface tuned for long analyst sessions"
-              control={<Switch checked={theme === "dark"} onCheckedChange={setThemeTo} />}
-            />
+          <PanelHeader title="Appearance" subtitle="Choose how the app looks" />
+          <div className="px-5 py-4">
+            <div className="grid grid-cols-3 gap-2">
+              {(["light", "dark", "system"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => applyMode(m)}
+                  className={cn(
+                    "rounded-lg border px-3 py-2.5 text-sm font-medium capitalize transition-colors",
+                    mode === m
+                      ? "border-primary/40 bg-copper-50 text-primary"
+                      : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+                  )}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
           </div>
         </Panel>
 
@@ -200,7 +216,7 @@ export default function SettingsPage() {
         </Panel>
 
         <Panel>
-          <PanelHeader title="About" subtitle="Inventory Copilot v1.0" />
+          <PanelHeader title="About" subtitle="Pallet v1.0" />
           <div className="px-5 py-4">
             <p className="text-sm leading-relaxed text-muted-foreground">
               Forecasts demand, recommends how much stock to keep, and lets you test what-if

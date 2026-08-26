@@ -91,7 +91,7 @@ export default function LoginPage() {
             <Warehouse className="size-[18px]" />
           </div>
           <div>
-            <p className="font-display text-sm font-bold leading-tight">Inventory Copilot</p>
+            <p className="font-display text-sm font-bold leading-tight">Pallet</p>
             <p className="text-[11px] text-muted-foreground">Decision intelligence</p>
           </div>
         </div>

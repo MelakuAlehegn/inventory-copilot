@@ -27,20 +27,20 @@ export interface ChartTokens {
 
 // Light-theme fallbacks (used for SSR / first paint before the probe runs).
 const DEFAULTS: ChartTokens = {
-  basestock: "#A85820",
-  naive: "#9A9184",
+  basestock: "#3B5BDB",
+  naive: "#9AA0AE",
   actual: "#2A6B47",
-  q50: "#A85820",
-  q90: "#D29464",
-  q95: "#E5BF99",
-  q99: "#F4E2CC",
-  grid: "#E2DDD5",
-  axis: "#E2DDD5",
-  tick: "#9A9184",
-  cutoff: "#C5BFB4",
+  q50: "#3B5BDB",
+  q90: "#7C93E8",
+  q95: "#AFBEF2",
+  q99: "#DEE5FB",
+  grid: "#E6E8EF",
+  axis: "#E6E8EF",
+  tick: "#8A90A2",
+  cutoff: "#B9BECC",
   surface: "#FFFFFF",
-  border: "#E2DDD5",
-  textSecondary: "#5A5347",
+  border: "#E6E8EF",
+  textSecondary: "#575D6B",
 };
 
 // Which CSS custom property backs each chart color.
