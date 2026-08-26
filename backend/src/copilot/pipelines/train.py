@@ -37,6 +37,30 @@ from copilot.core.forecast.model import (
 from copilot.eval.forecast import evaluate_forecast
 
 _EXPERIMENT = "forecast"
+_REGISTERED_MODEL = "quantile_forecaster"
+
+
+class _QuantileForecasterModel(mlflow.pyfunc.PythonModel):
+    """Pyfunc wrapper so the fitted forecaster is a registrable MLflow model.
+
+    Reloads the saved MLForecast and returns the horizon forecast; `model_input` may carry a
+    `horizon` column, otherwise the default horizon is used.
+    """
+
+    def load_context(self, context: mlflow.pyfunc.PythonModelContext) -> None:
+        from copilot.core.forecast.model import load_forecaster
+
+        self._fcst = load_forecaster(context.artifacts["model_dir"])
+
+    def predict(self, context: object, model_input: object, params: object = None) -> object:
+        from copilot.core.forecast.baseline import HORIZON
+        from copilot.core.forecast.model import quantile_forecast
+
+        horizon = HORIZON
+        cols = getattr(model_input, "columns", [])
+        if model_input is not None and "horizon" in cols:
+            horizon = int(model_input["horizon"].iloc[0])
+        return quantile_forecast(self._fcst, horizon=horizon).collect().to_pandas()
 
 
 def _features_fingerprint() -> str | None:
@@ -72,8 +96,15 @@ def log_training_run(
             }
         )
         mlflow.log_artifact(str(artifact_path))
-        # The fitted per-quantile models, so a run can be reloaded and served without retraining.
-        mlflow.log_artifacts(str(model_dir), artifact_path="model")
+        # Log the fitted models as a registered MLflow model, so a run can be reloaded and
+        # served without retraining, and each run shows up as a version in the Model Registry.
+        mlflow.pyfunc.log_model(
+            artifact_path="model",
+            python_model=_QuantileForecasterModel(),
+            artifacts={"model_dir": str(model_dir)},
+            registered_model_name=_REGISTERED_MODEL,
+            pip_requirements=["mlforecast", "lightgbm", "polars", "pandas"],
+        )
         return run.info.run_id
 
 

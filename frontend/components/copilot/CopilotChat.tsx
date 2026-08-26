@@ -117,11 +117,11 @@ function ToolCard({ step }: { step: AgentStep }) {
         </span>
       </div>
       {step.args ? (
-        <div className="num mt-2 rounded-md bg-surface px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">{argsJson(step.args)}</div>
+        <div className="num mt-2 break-all rounded-md bg-surface px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">{argsJson(step.args)}</div>
       ) : null}
       {step.summary ? (
         <p className="num mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
-          <FileText className="mt-0.5 size-3.5 shrink-0 text-success" /> {step.summary}
+          <FileText className="mt-0.5 size-3.5 shrink-0 text-success" /> <span className="min-w-0 break-words">{step.summary}</span>
         </p>
       ) : null}
     </div>
