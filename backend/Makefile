@@ -1,6 +1,6 @@
 # Backend task runner (Python, uv). Invoked by the top-level Makefile.
 .DEFAULT_GOAL := help
-.PHONY: help install install-all data-download data-build train backtest simulate eval \
+.PHONY: help install install-all data-download data-build train backtest simulate eval mlflow \
         api mcp migration db-upgrade db-downgrade test lint fmt typecheck clean
 
 UV := uv run
@@ -39,6 +39,9 @@ api: ## Run FastAPI (dev, reload)
 
 mcp: ## Run the optional MCP server exposing core tools
 	$(UV) python -m copilot.mcp.server
+
+mlflow: ## Launch the MLflow UI for training runs (params, metrics, models)
+	$(UV) mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 
 migration: ## Autogenerate a migration: make migration m="message"
 	$(UV) alembic revision --autogenerate -m "$(m)"
