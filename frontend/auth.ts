@@ -19,6 +19,9 @@ const jwtSecret = new TextEncoder().encode(
 );
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Self-hosted behind our own host/proxy, so trust the request host (dev does this implicitly;
+  // a production server does not unless told). Set AUTH_URL to the canonical URL in a real deploy.
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,

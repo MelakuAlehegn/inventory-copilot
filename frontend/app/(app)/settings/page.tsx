@@ -1,11 +1,12 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { Check } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { Check, LogOut } from "lucide-react";
 import { TopBar } from "@/components/app/top-bar";
 import { Panel, PanelHeader } from "@/components/app/primitives";
 import { Switch } from "@/components/ui/switch";
+import { Modal } from "@/components/app/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ export default function SettingsPage() {
   const [nameTick, setNameTick] = useState(false);
 
   const [health, setHealth] = useState<Health>("checking");
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   useEffect(() => {
     let stored: string | null = null;
@@ -225,7 +227,25 @@ export default function SettingsPage() {
             </p>
           </div>
         </Panel>
+
+        <Panel>
+          <PanelHeader title="Account" subtitle="Sign out of Pallet on this device" />
+          <div className="px-5 py-4">
+            <Button variant="outline" size="sm" onClick={() => setConfirmSignOut(true)}>
+              <LogOut className="size-4" /> Sign out
+            </Button>
+          </div>
+        </Panel>
       </div>
+
+      <Modal open={confirmSignOut} onClose={() => setConfirmSignOut(false)}>
+        <h2 className="text-base font-semibold">Sign out?</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">You&apos;ll need to sign in again to get back in.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setConfirmSignOut(false)}>Cancel</Button>
+          <Button variant="destructive" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>Sign out</Button>
+        </div>
+      </Modal>
     </>
   );
 }

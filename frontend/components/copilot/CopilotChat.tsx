@@ -267,7 +267,7 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const [pendingDelete, setPendingDelete] = useState<{ kind: "one"; id: string; title: string } | { kind: "all" } | null>(null);
 
   const msgsRef = useRef<HTMLDivElement>(null);
-  const taRef   = useRef<HTMLInputElement>(null);
+  const taRef   = useRef<HTMLTextAreaElement>(null);
   const sentInitial = useRef(false);
   const lastPrefillNonce = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -322,6 +322,15 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   useEffect(() => {
     msgsRef.current?.scrollTo({ top: msgsRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, streamContent, steps, phases]);
+
+  // Grow the composer with its content (wrap to new lines instead of scrolling sideways),
+  // capped so it never takes over the panel.
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [input]);
 
   // In the docked panel, changing pages starts a fresh chat (the old one stays in that
   // page's history). Skip the first mount so a prefilled question isn't wiped.
@@ -500,17 +509,18 @@ export default function CopilotChat({ variant = "full", context, initialQuery, r
   const composer = (
     <div className={cn("shrink-0 border-t border-border bg-surface", isPanel ? "p-2.5" : "p-4")}>
       <div className={isPanel ? "" : "mx-auto max-w-3xl"}>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface-2 py-1.5 pl-4 pr-1.5 transition-colors focus-within:border-primary/50">
-          <Paperclip className="size-4 shrink-0 text-muted-foreground" />
-          <input
+        <div className="flex items-end gap-2 rounded-2xl border border-border bg-surface-2 py-1.5 pl-4 pr-1.5 transition-colors focus-within:border-primary/50">
+          <Paperclip className="mb-2 size-4 shrink-0 text-muted-foreground" />
+          <textarea
             ref={taRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
             }}
             placeholder="Ask about demand, inventory, or scenarios..."
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="max-h-[140px] min-w-0 flex-1 resize-none self-center bg-transparent py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground"
             id="copilot-input"
           />
           {streaming ? (
