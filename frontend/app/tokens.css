@@ -80,8 +80,6 @@
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --olive: oklch(0.46 0.095 122);       /* #4B5D16 */
-  --olive-deep: oklch(0.3 0.07 128);    /* #223300 */
   --primary: oklch(0.52 0.17 264);      /* cobalt-indigo */
   --primary-deep: oklch(0.42 0.15 264);
   --primary-foreground: oklch(0.99 0.005 80);
@@ -128,8 +126,6 @@
   --popover: var(--surface);
   --popover-foreground: var(--foreground);
   --accent-h: 264;
-  --olive: oklch(0.6 0.1 122);
-  --olive-deep: oklch(0.42 0.08 125);
   --primary: oklch(0.62 0.17 264);      /* brighter cobalt for dark */
   --primary-deep: oklch(0.5 0.15 264);
   --primary-foreground: oklch(0.98 0.005 265);

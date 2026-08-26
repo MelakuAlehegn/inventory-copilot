@@ -42,7 +42,7 @@ function ParetoTooltip({ active, payload, tokens }: { active?: boolean; payload?
       fontSize: "0.8125rem",
       boxShadow: "0 4px 14px rgba(24,22,15,0.09)",
     }}>
-      <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, marginBottom: 6, color: d.policy === "base_stock" ? tokens.basestock : tokens.naive }}>
+      <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, marginBottom: 6, color: d.policy === "base_stock" ? tokens.basestock : tokens.naive }}>
         {LABELS[d.policy as keyof typeof LABELS]}
       </div>
       <div style={{ color: tokens.textSecondary, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -136,7 +136,7 @@ function ForecastTooltip({ active, payload, label, tokens }: { active?: boolean;
       padding: "10px 14px", fontSize: "0.8125rem",
       boxShadow: "0 4px 14px rgba(24,22,15,0.09)",
     }}>
-      <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 600, marginBottom: 6, fontSize: "0.75rem", color: tokens.tick }}>
+      <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, marginBottom: 6, fontSize: "0.75rem", color: tokens.tick }}>
         {label}
       </div>
       {payload.map((p) => (

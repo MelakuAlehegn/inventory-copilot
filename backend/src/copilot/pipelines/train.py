@@ -18,6 +18,7 @@ Run with::
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import date
 from pathlib import Path
 
@@ -27,7 +28,12 @@ import polars as pl
 from copilot.config import settings
 from copilot.core.data.load import read_features
 from copilot.core.forecast.baseline import split_by_horizon
-from copilot.core.forecast.model import model_params, train_and_forecast_quantiles
+from copilot.core.forecast.model import (
+    fit_quantile_forecaster,
+    model_params,
+    quantile_forecast,
+    save_forecaster,
+)
 from copilot.eval.forecast import evaluate_forecast
 
 _EXPERIMENT = "forecast"
@@ -42,9 +48,9 @@ def _features_fingerprint() -> str | None:
 
 
 def log_training_run(
-    metrics: dict[str, float], cutoff: date, n_series: int, artifact_path: Path
+    metrics: dict[str, float], cutoff: date, n_series: int, artifact_path: Path, model_dir: Path
 ) -> str:
-    """Record one training run (params, holdout metrics, forecast artifact) in MLflow."""
+    """Record one training run (params, holdout metrics, forecast + fitted model) in MLflow."""
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     mlflow.set_experiment(_EXPERIMENT)
     with mlflow.start_run() as run:
@@ -66,6 +72,8 @@ def log_training_run(
             }
         )
         mlflow.log_artifact(str(artifact_path))
+        # The fitted per-quantile models, so a run can be reloaded and served without retraining.
+        mlflow.log_artifacts(str(model_dir), artifact_path="model")
         return run.info.run_id
 
 
@@ -75,15 +83,23 @@ def main() -> None:
     n_series = train.select(pl.col("unique_id").n_unique()).collect().item()
     print(f"training quantile forecaster on {n_series:,} series (cutoff {cutoff})...")
 
-    forecast = train_and_forecast_quantiles(train).collect()
+    fcst = fit_quantile_forecaster(train)
+    forecast = quantile_forecast(fcst).collect()
     out_path = settings.processed_dir / "forecast_quantiles.parquet"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     forecast.write_parquet(out_path)
 
+    # Persist the fitted models to a stable path so they can be reloaded and served (no retrain).
+    model_dir = settings.processed_dir / "quantile_model"
+    if model_dir.exists():
+        shutil.rmtree(model_dir)
+    save_forecaster(fcst, model_dir)
+
     metrics = evaluate_forecast(train, forecast.lazy(), test.select("unique_id", "ds", "y"), cutoff)
-    run_id = log_training_run(metrics, cutoff, n_series, out_path)
+    run_id = log_training_run(metrics, cutoff, n_series, out_path, model_dir)
 
     print(f"wrote {forecast.height:,} rows -> {out_path}")
+    print(f"saved fitted quantile model -> {model_dir}")
     print(
         f"WRMSSE {metrics['wrmsse_model']:.4f} "
         f"({metrics['wrmsse_improvement']:+.1%} vs naive), pinball {metrics['pinball_mean']:.4f}"

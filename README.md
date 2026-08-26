@@ -1,4 +1,4 @@
-# Retail Demand & Inventory Copilot
+# Retail Demand & Inventory Copilot (Pallet)
 
 An end-to-end system for retail demand and inventory decisions. It learns to predict how much
 each product will sell, turns those predictions into concrete stocking decisions, tests them

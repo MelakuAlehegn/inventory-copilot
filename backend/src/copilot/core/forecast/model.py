@@ -13,6 +13,8 @@ Two flavors share the same feature config:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import lightgbm as lgb
 import pandas as pd
 import polars as pl
@@ -96,17 +98,22 @@ def train_and_forecast(train: pl.LazyFrame, horizon: int = HORIZON) -> pl.LazyFr
     )
 
 
-def train_and_forecast_quantiles(
-    train: pl.LazyFrame, horizon: int = HORIZON, quantiles: list[float] = QUANTILES
+def fit_quantile_forecaster(train: pl.LazyFrame, quantiles: list[float] = QUANTILES) -> MLForecast:
+    """Fit one LightGBM per quantile and return the fitted forecaster (holds the models)."""
+    df = _training_frame(train)
+    fcst = make_quantile_forecaster(quantiles)
+    fcst.fit(df, static_features=STATIC)
+    return fcst
+
+
+def quantile_forecast(
+    fcst: MLForecast, horizon: int = HORIZON, quantiles: list[float] = QUANTILES
 ) -> pl.LazyFrame:
-    """Fit one model per quantile and return (unique_id, ds, q50, q80, ...).
+    """Predict the horizon from a fitted quantile forecaster: (unique_id, ds, q50, q80, ...).
 
     Quantiles are post-sorted per row (running max across increasing quantiles) so a
     higher quantile can never fall below a lower one ("quantile crossing").
     """
-    df = _training_frame(train)
-    fcst = make_quantile_forecaster(quantiles)
-    fcst.fit(df, static_features=STATIC)
     out = pl.from_pandas(fcst.predict(h=horizon)).with_columns(pl.col("ds").cast(pl.Date))
 
     qcols = [_qname(q) for q in quantiles]
@@ -118,3 +125,20 @@ def train_and_forecast_quantiles(
     if monotone:
         out = out.with_columns(monotone)
     return out.lazy()
+
+
+def train_and_forecast_quantiles(
+    train: pl.LazyFrame, horizon: int = HORIZON, quantiles: list[float] = QUANTILES
+) -> pl.LazyFrame:
+    """Fit the quantile models and return their horizon forecast (fit + predict in one call)."""
+    return quantile_forecast(fit_quantile_forecaster(train, quantiles), horizon, quantiles)
+
+
+def save_forecaster(fcst: MLForecast, path: str | Path) -> None:
+    """Persist a fitted forecaster (its per-quantile models + feature config) to a directory."""
+    fcst.save(str(path))
+
+
+def load_forecaster(path: str | Path) -> MLForecast:
+    """Reload a fitted forecaster saved by ``save_forecaster`` (serve without retraining)."""
+    return MLForecast.load(str(path))
