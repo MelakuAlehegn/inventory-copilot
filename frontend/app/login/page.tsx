@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Warehouse, Moon, Sun } from "lucide-react";
+import { Moon, Sun, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -31,6 +31,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<Theme>("light");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     setTheme((document.documentElement.getAttribute("data-theme") as Theme) || "light");
@@ -85,58 +86,87 @@ export default function LoginPage() {
       >
         {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </Button>
-      <div className="panel w-full max-w-sm p-6">
-        <div className="flex items-center gap-3">
-          <div className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <Warehouse className="size-[18px]" />
+      <div className="w-full max-w-sm">
+        <div className="panel p-7">
+          <div className="mb-5 flex justify-center">
+            <div className="grid size-12 place-items-center rounded-xl bg-primary grad-brand text-lg font-bold text-primary-foreground shadow-sm">
+              Pa
+            </div>
           </div>
-          <div>
-            <p className="font-display text-sm font-bold leading-tight">Pallet</p>
-            <p className="text-[11px] text-muted-foreground">Decision intelligence</p>
-          </div>
-        </div>
 
-        <h1 className="mt-6 text-xl font-bold">{mode === "signin" ? "Welcome back" : "Create your account"}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {mode === "signin"
-            ? "Sign in to access your forecasts, inventory recommendations, and scenario analysis."
-            : "Set up an account to save scenarios and chat with the copilot."}
-        </p>
+          <h1 className="text-center text-2xl font-bold tracking-tight">
+            {mode === "signin" ? "Welcome back" : "Create your account"}
+          </h1>
+          <p className="mt-1 text-center text-sm text-muted-foreground">
+            {mode === "signin" ? "Sign in to your workspace" : "Set up your account to get started"}
+          </p>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-3">
-          {mode === "signup" ? (
-            <Input type="text" placeholder="Name (optional)" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-          ) : null}
-          <Input type="email" placeholder="Email" value={email} required onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-          <Input type="password" placeholder="Password" value={password} required minLength={8} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} />
-
-          {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+          <Button variant="outline" className="mt-6 w-full" onClick={() => signIn("google", { callbackUrl: "/" })} id="login-google">
+            <GoogleIcon /> Continue with Google
           </Button>
-        </form>
 
-        <p className="mt-3 text-sm text-muted-foreground">
-          {mode === "signin" ? "No account yet? " : "Already have an account? "}
-          <button
-            type="button"
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
-            className="font-medium text-primary hover:underline"
-          >
-            {mode === "signin" ? "Create one" : "Sign in"}
-          </button>
-        </p>
+          <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+          </div>
 
-        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "signup" ? (
+              <div>
+                <label htmlFor="login-name" className="mb-1.5 block text-sm font-medium">Name</label>
+                <Input id="login-name" type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+              </div>
+            ) : null}
+
+            <div>
+              <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium">Email</label>
+              <Input id="login-email" type="email" placeholder="you@company.com" value={email} required onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            </div>
+
+            <div>
+              <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium">Password</label>
+              <div className="relative">
+                <Input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  required
+                  minLength={8}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-2.5 flex items-center text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+            </Button>
+          </form>
+
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+            <button
+              type="button"
+              onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
+              className="font-medium text-primary hover:underline"
+            >
+              {mode === "signin" ? "Create one" : "Sign in"}
+            </button>
+          </p>
         </div>
 
-        <Button variant="outline" className="w-full" onClick={() => signIn("google", { callbackUrl: "/" })} id="login-google">
-          <GoogleIcon /> Continue with Google
-        </Button>
-
-        <p className="mt-4 text-center text-[11px] text-muted-foreground">By continuing you accept the terms of this demo.</p>
+        <p className="mt-6 text-center text-[11px] text-muted-foreground">© {new Date().getFullYear()} Pallet</p>
       </div>
     </div>
   );
