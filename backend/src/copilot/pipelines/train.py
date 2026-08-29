@@ -24,6 +24,7 @@ from pathlib import Path
 
 import mlflow
 import polars as pl
+from mlflow.pyfunc import PythonModel, PythonModelContext
 
 from copilot.config import settings
 from copilot.core.data.load import read_features
@@ -40,14 +41,14 @@ _EXPERIMENT = "forecast"
 _REGISTERED_MODEL = "quantile_forecaster"
 
 
-class _QuantileForecasterModel(mlflow.pyfunc.PythonModel):
+class _QuantileForecasterModel(PythonModel):
     """Pyfunc wrapper so the fitted forecaster is a registrable MLflow model.
 
     Reloads the saved MLForecast and returns the horizon forecast; `model_input` may carry a
     `horizon` column, otherwise the default horizon is used.
     """
 
-    def load_context(self, context: mlflow.pyfunc.PythonModelContext) -> None:
+    def load_context(self, context: PythonModelContext) -> None:
         from copilot.core.forecast.model import load_forecaster
 
         self._fcst = load_forecaster(context.artifacts["model_dir"])
