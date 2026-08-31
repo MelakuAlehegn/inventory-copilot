@@ -1,5 +1,7 @@
 # Pallet (Retail Demand & Inventory Copilot)
 
+▶ **[Watch the demo](https://www.youtube.com/watch?v=0vwCXfhoAFs)**
+
 An end-to-end system for retail demand and inventory decisions. It learns to predict how much
 each product will sell, turns those predictions into concrete stocking decisions, tests them
 against real history, and puts a grounded AI assistant on top that answers questions and
