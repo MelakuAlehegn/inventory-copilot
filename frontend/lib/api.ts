@@ -16,6 +16,8 @@ import type {
   StoreMetrics,
   ChatSession,
   ChatMessage,
+  LlmStatus,
+  LlmSettings,
 } from "@/lib/types";
 
 // Browser calls must use the API's PUBLIC url (NEXT_PUBLIC_API_URL, baked at build time).
@@ -45,6 +47,30 @@ function cachedFetch<T>(key: string, run: () => Promise<T>): Promise<T> {
   });
   _getCache.set(key, { expires: now + CACHE_TTL_MS, value });
   return value;
+}
+
+// Parse a server-sent-events response body into {type, data} frames. Shared by every
+// streaming call (chat, model pulls). Frames are separated by a blank line; the server uses
+// CRLF (sse_starlette), so accept \r\n\r\n and \n\n, and split lines on either CRLF or LF.
+// The caller validates res.ok/res.body first so it can throw its own error message.
+async function* parseEventStream(res: Response): AsyncGenerator<{ type: string; data: string }> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split(/\r\n\r\n|\n\n/);
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const lines = frame.split(/\r\n|\n/);
+      const eventLine = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataLine = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      // Per the SSE spec a frame with no event field defaults to "message".
+      if (dataLine !== undefined) yield { type: eventLine ?? "message", data: dataLine };
+    }
+  }
 }
 
 // Drop undefined/null/empty values so we never emit "undefined" in a query string.
@@ -227,27 +253,39 @@ export function apiClient(token?: string | null) {
       if (!res.ok || !res.body) {
         throw new Error(`Chat stream error ${res.status}`);
       }
+      yield* parseEventStream(res);
+    },
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+    // ── Settings: active LLM + Ollama models ────────────────────────────────────
+    getLlmStatus(): Promise<LlmStatus> {
+      return request<LlmStatus>("/settings/llm");
+    },
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        // Frames are separated by a blank line; the server uses CRLF (sse_starlette),
-        // so accept \r\n\r\n and \n\n. Lines split on either CRLF or LF.
-        const frames = buffer.split(/\r\n\r\n|\n\n/);
-        buffer = frames.pop() ?? "";
-        for (const frame of frames) {
-          const lines = frame.split(/\r\n|\n/);
-          const eventLine = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
-          const dataLine = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
-          // Per the SSE spec a frame with no event field defaults to "message".
-          if (dataLine !== undefined) yield { type: eventLine ?? "message", data: dataLine };
-        }
+    updateLlm(provider: string, model: string): Promise<LlmSettings> {
+      return request<LlmSettings>("/settings/llm", {
+        method: "PUT",
+        body: JSON.stringify({ provider, model }),
+      });
+    },
+
+    async *pullOllamaModel(
+      name: string,
+      signal?: AbortSignal
+    ): AsyncGenerator<{ type: string; data: string }> {
+      const res = await fetch(`${BASE}/settings/llm/pull`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify({ name }),
+        signal,
+      });
+      if (!res.ok || !res.body) {
+        throw new Error(`Model pull error ${res.status}`);
       }
+      yield* parseEventStream(res);
     },
   };
 }

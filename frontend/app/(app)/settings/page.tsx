@@ -7,6 +7,7 @@ import { TopBar } from "@/components/app/top-bar";
 import { Panel, PanelHeader } from "@/components/app/primitives";
 import { Switch } from "@/components/ui/switch";
 import { Modal } from "@/components/app/modal";
+import { ModelSettings } from "@/components/app/model-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -145,6 +146,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </Panel>
+
+        <ModelSettings />
 
         <Panel>
           <PanelHeader

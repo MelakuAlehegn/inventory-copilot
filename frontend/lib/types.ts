@@ -195,3 +195,22 @@ export interface SSEEvent {
   type: "tool" | "message" | "done" | "error";
   data: string | ToolCallTrace;
 }
+
+export interface OllamaModelInfo {
+  name: string;
+  size: number | null;
+}
+
+export interface LlmStatus {
+  provider: string;
+  model: string;
+  providers: string[];
+  gemini_configured: boolean;
+  ollama_available: boolean;
+  ollama_models: OllamaModelInfo[];
+}
+
+export interface LlmSettings {
+  provider: string;
+  model: string;
+}
