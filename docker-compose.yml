@@ -25,10 +25,16 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      # On-device Ollama runs on the host, not in a container; reach it via the host gateway.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-}
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
