@@ -39,6 +39,7 @@ agent = [
     "langgraph>=0.2",
     "langchain-core>=0.3",
     "langchain-google-genai>=2.0",  # Gemini chat model + native function calling
+    "langchain-ollama>=0.2",  # on-device chat model + native tool calling
     "langfuse>=2.0",
     "logfire>=0.50",
     "langchain>=1.0",

@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from sqlalchemy import ForeignKey, Text, Uuid
+from sqlalchemy import CheckConstraint, ForeignKey, Text, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -60,6 +60,22 @@ class ChatSession(Base, TimestampMixin):
         back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.id"
     )
     user: Mapped[User] = relationship(back_populates="chats")
+
+
+class AppSetting(Base, TimestampMixin):
+    """Operator-level runtime settings, kept as a single row (id is pinned to 1).
+
+    Right now it holds only the active LLM provider/model so the UI can switch the
+    assistant's brain (cloud Gemini or on-device Ollama) without a restart. Absent row =
+    fall back to the env defaults.
+    """
+
+    __tablename__ = "app_settings"
+    __table_args__ = (CheckConstraint("id = 1", name="app_settings_singleton"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False, default=1)
+    llm_provider: Mapped[str]  # "gemini" | "ollama"
+    llm_model: Mapped[str]
 
 
 class ChatMessage(Base, TimestampMixin):

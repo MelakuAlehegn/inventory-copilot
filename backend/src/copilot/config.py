@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     llm_provider: str = Field(default="gemini")  # "gemini" | "ollama"
     llm_model: str = Field(default="gemini-2.5-flash")
     google_api_key: str | None = None  # also read directly by the Google GenAI client
-    ollama_base_url: str = Field(default="http://localhost:11434/v1")
+    ollama_base_url: str = Field(default="http://localhost:11434")
     # Optional client-side request pacing (requests/second) for batch jobs that must stay
     # within an API's rate limits. None = unlimited; leave unset for interactive use.
     llm_requests_per_second: float | None = None

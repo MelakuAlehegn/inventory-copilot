@@ -19,12 +19,15 @@ from langgraph.graph.state import CompiledStateGraph
 
 from copilot.agent.context import CopilotContext, load_context
 from copilot.agent.graph import build_agent
+from copilot.agent.providers import get_chat_model
+from copilot.config import settings
 from copilot.core.data import analytics
 from copilot.core.policy.base_stock import PolicyParams
 from copilot.core.simulation.inventory import inventory_table
 from copilot.core.simulation.scenario import Scenario, run_scenario
 from copilot.eval.decision import decision_report
 from copilot.eval.forecast import evaluate_forecast
+from copilot.services.app_settings import LlmSettings
 
 logger = logging.getLogger("copilot.api")
 
@@ -32,6 +35,11 @@ DEFAULT_SERVICE_LEVELS = [0.90, 0.95, 0.98, 0.99]
 
 _cache: dict[str, Any] = {}
 _lock = threading.RLock()  # reentrant so memoized getters can call each other
+
+# The active LLM held in memory for the sync agent-build path (which cannot await a DB
+# read). Seeded from env, refreshed from the DB at startup, and updated when the operator
+# switches models. Changing it evicts the cached agent so the next chat rebuilds.
+_active_llm = LlmSettings(provider=settings.llm_provider, model=settings.llm_model)
 
 
 def _memo[T](key: str, compute: Callable[[], T]) -> T:
@@ -46,8 +54,45 @@ def get_context() -> CopilotContext:
     return _memo("context", load_context)
 
 
+def current_llm() -> LlmSettings:
+    """The provider/model the agent is currently using."""
+    return _active_llm
+
+
+def set_current_llm(value: LlmSettings) -> None:
+    """Swap the active LLM and drop the cached agent so it rebuilds on the next chat."""
+    global _active_llm
+    with _lock:
+        _active_llm = value
+        _cache.pop("agent", None)
+
+
+async def load_active_llm() -> None:
+    """Seed the in-memory active LLM from the DB row at startup (env default if it fails).
+
+    Imports are local so importing this module never eagerly opens a DB connection, and a
+    missing table (before the migration runs) simply falls back to the env default.
+    """
+    from copilot.db.session import async_session_maker
+    from copilot.services.app_settings import get_active_llm
+
+    try:
+        async with async_session_maker() as session:
+            value = await get_active_llm(session)
+    except Exception:
+        logger.exception("could not load active LLM from DB; keeping env default")
+        return
+    set_current_llm(value)
+
+
 def get_agent() -> CompiledStateGraph[Any, None, Any, Any]:
-    return _memo("agent", lambda: build_agent(get_context()))
+    llm = current_llm()
+    return _memo(
+        "agent",
+        lambda: build_agent(
+            get_context(), model=get_chat_model(provider=llm.provider, model=llm.model)
+        ),
+    )
 
 
 def get_inventory_table() -> pl.DataFrame:

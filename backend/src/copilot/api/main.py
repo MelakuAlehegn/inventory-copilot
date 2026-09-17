@@ -16,7 +16,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from copilot.api.dependencies import warm_caches
+from copilot.api.dependencies import load_active_llm, warm_caches
 from copilot.api.routers import (
     analytics,
     auth,
@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Warm the static caches in a background thread so startup (and the first request) don't
     block on the simulation burst. If warming is slow the server still accepts traffic and
     computes lazily on demand."""
+    await load_active_llm()  # pick up the operator's saved model choice before serving
     threading.Thread(target=warm_caches, name="warm-caches", daemon=True).start()
     yield
 
