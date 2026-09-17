@@ -28,6 +28,9 @@ from copilot.api.routers import (
     scenarios,
     users,
 )
+from copilot.api.routers import (
+    settings as settings_router,
+)
 from copilot.config import settings
 
 logger = logging.getLogger("copilot.api")
@@ -69,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(forecast.router)
     app.include_router(inventory.router)
     app.include_router(scenarios.router)
+    app.include_router(settings_router.router)
     return app
 
 
